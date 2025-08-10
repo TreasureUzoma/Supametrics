@@ -33,7 +33,7 @@ teamRoutes.post("/", async (c) => {
   }
 
   const { name } = await c.req.json();
-  const slug = name.toLowerCase().replace(/\s+/g, "-");
+  const slug = names.toLowerCase().replace(/\s+/g, "-");
 
   const [team] = await db
     .insert(teams)

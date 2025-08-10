@@ -11,6 +11,9 @@
  * - Neon serverless database
  */
 
+
+// TODO: Build a nice roadmap api that shows all tasks, completion rate, etc
+
 export const roadmap = {
   phases: [
     {
@@ -67,7 +70,7 @@ export const roadmap = {
 
   middleware: [
     "authMiddleware - Verifies JWT or session token",
-    "rateLimitMiddleware - Enforces rate limits by IP/user/project",
+    "rateLimitMiddleware - Enforces rate limits by IP + User/user/project",
     "roleMiddleware(['admin', 'super-admin']) - Role-based access",
     "planMiddleware - Enforces plan-level limitations",
     "teamAccessMiddleware - Verifies user access to a team",

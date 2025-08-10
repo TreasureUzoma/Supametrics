@@ -10,7 +10,7 @@ func main() {
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{
 			"success": true,
-			"message": "Hello from go/fiber",
+			"message": "Hello Nerd! Visit supametrics.com, powered by Go - Fiber!",
 		})
 	})
 

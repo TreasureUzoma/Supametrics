@@ -2,11 +2,14 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 
 import type { AuthType } from "./lib/auth";
-import { withAuth } from "./middleware/session";
 
-import auth from "./handlers/auth";
-import projects from "./handlers/projects";
-import teams from "./handlers/teams";
+import { withAuth } from "./middleware/session";
+import { rateLimiter } from "./middleware/rate-limiter";
+
+
+import authRoutes from "./handlers/auth";
+import projectRoutes from "./handlers/projects";
+import teamRoutes from "./handlers/teams";
 
 const app = new Hono();
 
@@ -28,24 +31,29 @@ app.notFound((c) => {
 });
 
 app.get("/", (c) => {
-  return c.text("Hello from Hono!");
+  return c.text("Hello Nerd! Visit supametrics.com, powered by Hono!");
 });
 
 const v1 = new Hono<{ Variables: AuthType }>().basePath("/api/v1");
 
-v1.get("/health", (c) => { 
+// health endpoint — 5 requests per minute
+v1.get("/health", rateLimiter(60 * 1000, 5), (c) => {
   return c.json({
     message: "Server is healthy!",
   });
 });
-v1.route("/auth", auth);
 
+// auth routes (no rate limiting for now)
+v1.route("/auth", authRoutes);
 
+// everything else requires authentication
 v1.use("*", withAuth);
 
+// projects routes — 100 requests per hour
+v1.route("/projects", projectRoutes.use(rateLimiter(60 * 60 * 1000, 100)));
 
-v1.route("/projects", projects);
-v1.route("/teams", teams);
+// teams routes — 50 requests per hour
+v1.route("/teams", teamRoutes.use(rateLimiter(60 * 60 * 1000, 50)));
 
 app.route("/", v1);
 
