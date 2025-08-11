@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { db } from "../db";
-import * as authSchema from "../db/auth-schema";
+import { db } from "../db/index.js";
+import * as authSchema from "../db/auth-schema.js";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -11,7 +11,7 @@ export const auth = betterAuth({
       user: authSchema.user,
     },
   }),
-  trustedOrigins: ["http://localhost:3000"],
+  trustedOrigins: ["http://localhost:3001"],
   emailAndPassword: {
     enabled: true,
   },
@@ -28,6 +28,6 @@ export const auth = betterAuth({
 });
 
 export type AuthType = {
-  user: (typeof auth.$Infer.Session.user & { uuid: string }) | null;
+  user: (typeof auth.$Infer.Session.user & { uuid?: string }) | null;
   session: typeof auth.$Infer.Session.session | null;
 };

@@ -1,15 +1,14 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 
-import type { AuthType } from "./lib/auth";
+import { withAuth } from "./middleware/session.js";
+import { rateLimiter } from "./middleware/rate-limiter.js";
 
-import { withAuth } from "./middleware/session";
-import { rateLimiter } from "./middleware/rate-limiter";
-
-
-import authRoutes from "./handlers/auth";
-import projectRoutes from "./handlers/projects";
-import teamRoutes from "./handlers/teams";
+import authRoutes from "./handlers/auth.js";
+import projectRoutes from "./handlers/projects.js";
+import analyticsRoutes from "./handlers/analytics.js";
+import reportRoutes from "./handlers/reports.js";
+import teamRoutes from "./handlers/teams.js";
 
 const app = new Hono();
 
@@ -34,7 +33,7 @@ app.get("/", (c) => {
   return c.text("Hello Nerd! Visit supametrics.com, powered by Hono!");
 });
 
-const v1 = new Hono<{ Variables: AuthType }>().basePath("/api/v1");
+const v1 = new Hono().basePath("/api/v1");
 
 // health endpoint — 5 requests per minute
 v1.get("/health", rateLimiter(60 * 1000, 5), (c) => {
@@ -51,6 +50,12 @@ v1.use("*", withAuth);
 
 // projects routes — 100 requests per hour
 v1.route("/projects", projectRoutes.use(rateLimiter(60 * 60 * 1000, 100)));
+
+// analytics routes — 50 requests per hour
+v1.route("/analytics", analyticsRoutes.use(rateLimiter(60 * 60 * 1000, 50)));
+
+// reports routes — 50 requests per hour
+v1.route("/reports", reportRoutes.use(rateLimiter(60 * 60 * 1000, 50)));
 
 // teams routes — 50 requests per hour
 v1.route("/teams", teamRoutes.use(rateLimiter(60 * 60 * 1000, 50)));

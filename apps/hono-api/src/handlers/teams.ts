@@ -1,10 +1,9 @@
 import { Hono } from "hono";
-import { db } from "../db";
-import { teams, teamMembers, teamInvites } from "../db/schema";
-import { user } from "../db/auth-schema";
+import { db } from "../db/index.js";
+import { teams, teamMembers, teamInvites } from "../db/schema.js";
 import { nanoid } from "nanoid";
 import { eq } from "drizzle-orm";
-import { getUserOrThrow } from "../lib/project-helpers";
+import { getUserOrThrow } from "../helpers/projects.js";
 
 const teamRoutes = new Hono();
 
@@ -20,7 +19,7 @@ teamRoutes.get("/", async (c) => {
 
   return c.json({
     success: true,
-    teams: results.map((r) => ({ ...r.team, role: r.role })),
+    teams: results.map((r: any) => ({ ...r.team, role: r.role })),
   });
 });
 
@@ -33,7 +32,7 @@ teamRoutes.post("/", async (c) => {
   }
 
   const { name } = await c.req.json();
-  const slug = names.toLowerCase().replace(/\s+/g, "-");
+  const slug = name.toLowerCase().replace(/\s+/g, "-");
 
   const [team] = await db
     .insert(teams)

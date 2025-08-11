@@ -1,8 +1,8 @@
 import type { Context } from "hono";
-import { db } from "../db";
-import { projects, projectMembers } from "../db/schema";
+import { db } from "../db/index.js";
+import { projects, projectMembers } from "../db/schema.js";
 import { eq, and } from "drizzle-orm";
-import type { AuthType } from "./auth";
+import type { AuthType } from "../lib/auth.js";
 
 export async function getUserOrThrow(c: Context<{ Variables: AuthType }>) {
   const user = c.get("user");
@@ -15,8 +15,7 @@ export async function getProjectOrThrow(projectId: string) {
     .select()
     .from(projects)
     .where(eq(projects.uuid, projectId));
-  if (!project)
-    return c.json({ error: "Project not found" }, 404)
+  if (!project) throw new Error("Project not found");
   return project;
 }
 

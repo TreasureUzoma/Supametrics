@@ -1,22 +1,26 @@
 import { Hono } from "hono";
-import { db } from "../db";
-import { projectApiKeys, projectMembers, projects, teams } from "../db/schema";
-import { user } from "../db/auth-schema";
+import { db } from "../db/index.js";
+import type { Context } from "hono/jsx";
+import {
+  projectApiKeys,
+  projectMembers,
+  projects,
+  teams,
+} from "../db/schema.js";
+import { user } from "../db/auth-schema.js";
 import { eq, and, isNull } from "drizzle-orm";
 import { nanoid } from "nanoid";
-import { createProjectSchema } from "../lib/zod";
-import { slugifyProjectName } from "../lib/slugify";
-import { generateApiKeys, getPaginationParams } from "../lib/utils";
+import { createProjectSchema } from "../lib/zod.js";
+import { slugifyProjectName } from "../lib/slugify.js";
+import { generateApiKeys, getPaginationParams } from "../lib/utils.js";
 import {
   getUserOrThrow,
   getProjectOrThrow,
   getProjectMembership,
   isOwnerOrAdmin,
-} from "../lib/project-helpers";
-import type { AuthType } from "../lib/auth";
+} from "../helpers/projects.js";
 
-
-const projectRoutes = new Hono<{ Variables: AuthType }>();
+const projectRoutes = new Hono();
 
 // create new project
 projectRoutes.post("/new", async (c) => {
@@ -139,8 +143,8 @@ projectRoutes.get("/", async (c) => {
 
   // Combine + assign role
   let allProjects = [
-    ...owned.map((p) => ({ ...p, role: "owner" as const })),
-    ...memberOf.map((m) => ({ ...m.project, role: m.role })),
+    ...owned.map((p: any) => ({ ...p, role: "owner" as const })),
+    ...memberOf.map((m: any) => ({ ...m.project, role: m.role })),
   ];
 
   // filter: Search by name
@@ -175,7 +179,6 @@ projectRoutes.get("/", async (c) => {
     },
   });
 });
-
 
 // Rotate key
 projectRoutes.post("/:id/rotate-key", async (c) => {
@@ -303,9 +306,11 @@ projectRoutes.patch("/:id", async (c) => {
 
   const project = await getProjectOrThrow(projectId);
 
-  const isAdminOrOwner = project.userId === currentUser.uuid ||
+  const isAdminOrOwner =
+    project.userId === currentUser.uuid ||
     (project.teamId &&
-      (await getProjectMembership(projectId, currentUser.uuid))?.role === "admin");
+      (await getProjectMembership(projectId, currentUser.uuid))?.role ===
+        "admin");
 
   if (!isAdminOrOwner) {
     return c.json({ error: "Only admins can update project" }, 403);
@@ -372,129 +377,6 @@ projectRoutes.delete("/:id/leave", async (c) => {
     );
 
   return c.json({ success: true });
-});
-
-// GET /:id/analytics (read analytics)
-projectRoutes.get("/:id/analytics", async (c) => {
-  const currentUser = await getUserOrThrow(c);
-  const projectId = c.req.param("id");
-  const project = await getProjectOrThrow(projectId);
-
-  if (!(await getProjectMembership(projectId, currentUser.uuid)))
-    return c.json({ error: "Forbidden" }, 403);
-
-  const { limit, offset, page } = getPaginationParams(c);
-
-  const analytics = await db
-    .select()
-    .from(analyticsEvents)
-    .where(eq(analyticsEvents.projectId, projectId))
-    .limit(limit)
-    .offset(offset);
-
-  const totalCountRes = await db
-    .select({ count: db.fn.count() })
-    .from(analyticsEvents)
-    .where(eq(analyticsEvents.projectId, projectId));
-
-  const total = Number(totalCountRes[0]?.count || 0);
-
-  return c.json({
-    success: true,
-    analytics,
-    pagination: {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-    },
-  });
-});
-
-// read by event name
-projectRoutes.get("/:id/analytics/:eventName", async (c) => {
-  const currentUser = await getUserOrThrow(c);
-  const projectId = c.req.param("id");
-  const eventName = c.req.param("eventName");
-
-  const project = await getProjectOrThrow(projectId);
-  if (!(await getProjectMembership(projectId, currentUser.uuid)))
-    return c.json({ error: "Forbidden" }, 403);
-
-  const { limit, offset, page } = getPaginationParams(c);
-
-  const filteredEvents = await db
-    .select()
-    .from(analyticsEvents)
-    .where(
-      and(
-        eq(analyticsEvents.projectId, projectId),
-        eq(analyticsEvents.eventName, eventName)
-      )
-    )
-    .limit(limit)
-    .offset(offset);
-
-  const totalCountRes = await db
-    .select({ count: db.fn.count() })
-    .from(analyticsEvents)
-    .where(
-      and(
-        eq(analyticsEvents.projectId, projectId),
-        eq(analyticsEvents.eventName, eventName)
-      )
-    );
-
-  const total = Number(totalCountRes[0]?.count || 0);
-
-  return c.json({
-    success: true,
-    eventName,
-    analytics: filteredEvents,
-    pagination: {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-    },
-  });
-});
-
-// get reports
-projectRoutes.get("/:id/reports", async (c) => {
-  const currentUser = await getUserOrThrow(c);
-  const projectId = c.req.param("id");
-  const project = await getProjectOrThrow(projectId);
-
-  if (!(await getProjectMembership(projectId, currentUser.uuid)))
-    return c.json({ error: "Forbidden" }, 403);
-
-  const { page, limit, offset } = getPaginationParams(c);
-
-  const reports = await db
-    .select()
-    .from(db.schema.reports)
-    .where(eq(db.schema.reports.projectId, projectId))
-    .limit(limit)
-    .offset(offset);
-
-  const totalRes = await db
-    .select({ count: db.fn.count() })
-    .from(db.schema.reports)
-    .where(eq(db.schema.reports.projectId, projectId));
-
-  const total = Number(totalRes[0]?.count || 0);
-
-  return c.json({
-    success: true,
-    reports,
-    pagination: {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-    },
-  });
 });
 
 export default projectRoutes;
