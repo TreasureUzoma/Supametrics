@@ -9,7 +9,6 @@ func main() {
 
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{
-			"success": true,
 			"message": "Hello Nerd! Visit supametrics.com, powered by Go - Fiber!",
 		})
 	})
@@ -18,10 +17,9 @@ func main() {
 
 	v1.Get("/health", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{
-			"success": true,
 			"message": "API is healthy",
 		})
 	})
 
-	app.Listen(":3000")
+	app.Listen(":3005")
 }

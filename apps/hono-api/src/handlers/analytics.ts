@@ -1,10 +1,12 @@
 import { Hono } from "hono";
+import type { Context } from "hono";
 import { db } from "../db/index.js";
 import { analyticsEvents } from "../db/schema.js";
-import { eq } from "drizzle-orm";
-import { getUserOrThrow, getProjectMembership } from "../helpers/projects.js";
+import { sql, eq, gte, lte, and, desc } from "drizzle-orm";
+import { getUserOrNull, getProjectMembership } from "../helpers/projects.js";
+import type { AuthType } from "../lib/auth.js";
 
-const analyticsRoutes = new Hono();
+const analyticsRoutes = new Hono<{ Variables: AuthType }>();
 
 const allowedFilters = [
   "10secs",
@@ -17,15 +19,15 @@ const allowedFilters = [
   "last3years",
 ];
 
-// date helpers
-const now = new Date();
+// --- date helpers ---
 const startOfDay = (d: Date) =>
   new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const endOfDay = (d: Date) =>
+
   new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
 const startOfWeek = (d: Date) => {
-  const day = d.getDay() || 7; // Sunday=0 → 7
-  const diff = 1 - day; // Monday=1 start
+  const day = d.getDay() || 7; // Sunday=0 -> 7
+  const diff = 1 - day; // Monday start
   const monday = new Date(d);
   monday.setDate(d.getDate() + diff);
   return startOfDay(monday);
@@ -45,9 +47,11 @@ const endOfYear = (d: Date) =>
 const startOfYearNYearsAgo = (d: Date, n: number) =>
   new Date(d.getFullYear() - n, 0, 1);
 
-// Calculate current period range
+// --- time range helpers ---
 function getTimeRange(filter: string) {
+  const now = new Date(); // fresh per request
   let startTime: Date, endTime: Date | undefined, bucketFormat: string;
+
   switch (filter) {
     case "10secs":
       startTime = new Date(now.getTime() - 10 * 1000);
@@ -96,7 +100,6 @@ function getTimeRange(filter: string) {
   return { startTime, endTime, bucketFormat };
 }
 
-// Calculate previous period range based on current period and filter
 function getPreviousTimeRange(
   filter: string,
   currentStart: Date,
@@ -143,32 +146,41 @@ function getPreviousTimeRange(
       return { startTime: prevYearStart, endTime: prevYearEnd };
     }
     case "last3years": {
-      const prev3YearsStart = new Date(currentStart);
-      prev3YearsStart.setFullYear(prev3YearsStart.getFullYear() - 3);
-      return { startTime: prev3YearsStart, endTime: currentStart };
+      const prevEnd = new Date(currentStart.getTime() - 1);
+      const prevStart = new Date(prevEnd);
+      prevStart.setFullYear(prevStart.getFullYear() - 3);
+      return { startTime: prevStart, endTime: prevEnd };
     }
     default:
       throw new Error("Invalid filter");
   }
 }
 
-// Calculate percent change helper
 function calcPercentChange(current: number, previous: number): number | null {
-  if (previous === 0) return null; // Avoid division by zero
+  if (previous === 0) return null;
   return ((current - previous) / Math.abs(previous)) * 100;
 }
 
-async function getCommonAggregations(projectId: string, conditions: any[]) {
+// --- Aggregations helper ---
+// NOTE: we build selection objects dynamically and use `sql` for counts
+async function getCommonAggregations(conditions: any[]) {
   const commonSelect = (groupByCols: any[]) =>
     db
       .select({
-        count: db.fn.count(),
-        ...groupByCols.reduce((acc, col) => ({ ...acc, [col.name]: col }), {}),
+        count: sql`count(*)`,
+        ...groupByCols.reduce(
+          (acc, col) => {
+            // alias column with its base name (e.g., event_type -> eventType)
+            const alias = String(col.name).split(".").pop()!;
+            return { ...acc, [alias]: col };
+          },
+          {} as Record<string, any>
+        ),
       })
       .from(analyticsEvents)
-      .where(...conditions)
+      .where(and(...conditions))
       .groupBy(...groupByCols)
-      .orderBy(db.fn.count(), "desc");
+      .orderBy(desc(sql`count(*)`));
 
   const [
     eventSummary,
@@ -191,19 +203,20 @@ async function getCommonAggregations(projectId: string, conditions: any[]) {
     commonSelect([analyticsEvents.hostname]).limit(10),
     commonSelect([analyticsEvents.utmSource]).limit(5),
     db
-      .select({ totalVisits: db.fn.count() })
-      .from(analyticsEvents)
-      .where(...conditions),
-    db
       .select({
-        uniqueVisitors: db.fn.countDistinct(analyticsEvents.visitorId),
+        totalVisits: sql`count(*)`,
       })
       .from(analyticsEvents)
-      .where(...conditions),
+      .where(and(...conditions)),
+    db
+      .select({
+        uniqueVisitors: sql`count(distinct ${analyticsEvents.visitorId})`,
+      })
+      .from(analyticsEvents)
+      .where(and(...conditions)),
   ]);
 
   return {
-    eventSummary,
     osSummary,
     deviceSummary,
     browserSummary,
@@ -216,10 +229,15 @@ async function getCommonAggregations(projectId: string, conditions: any[]) {
   };
 }
 
-// GET /:id/analytics get analytics data (page_view event [default event])
-analyticsRoutes.get("/:id/analytics", async (c) => {
-  const currentUser = await getUserOrThrow(c);
+// --- Main fetcher ---
+async function fetchAnalytics(
+  c: Context<{ Variables: AuthType }>,
+  eventName?: string
+) {
+  const currentUser = await getUserOrNull(c);
   const projectId = c.req.param("id");
+
+  if (!currentUser?.uuid) return c.json({ error: "Unauthorized" }, 401);
 
   if (!(await getProjectMembership(projectId, currentUser.uuid))) {
     return c.json({ error: "Forbidden" }, 403);
@@ -233,155 +251,83 @@ analyticsRoutes.get("/:id/analytics", async (c) => {
   const { startTime, endTime, bucketFormat } = getTimeRange(filter);
   const prevRange = getPreviousTimeRange(filter, startTime, endTime);
 
-  const conditionsCurrent = [
+  const conditionsCurrent: any[] = [
     eq(analyticsEvents.projectId, projectId),
-    analyticsEvents.timestamp.gte(startTime),
+    gte(analyticsEvents.timestamp, startTime),
   ];
-  if (endTime) conditionsCurrent.push(analyticsEvents.timestamp.lte(endTime));
+  if (endTime) conditionsCurrent.push(lte(analyticsEvents.timestamp, endTime));
+  if (eventName)
+    conditionsCurrent.push(eq(analyticsEvents.eventName, eventName));
 
-  const conditionsPrevious = [
+  const conditionsPrevious: any[] = [
     eq(analyticsEvents.projectId, projectId),
-    analyticsEvents.timestamp.gte(prevRange.startTime),
-    analyticsEvents.timestamp.lte(prevRange.endTime),
+    gte(analyticsEvents.timestamp, prevRange.startTime),
+    lte(analyticsEvents.timestamp, prevRange.endTime),
   ];
+  if (eventName)
+    conditionsPrevious.push(eq(analyticsEvents.eventName, eventName));
 
-  // Get common data and previous totals in parallel
   const [commonData, previousTotalsRes] = await Promise.all([
-    getCommonAggregations(projectId, conditionsCurrent),
+    getCommonAggregations(conditionsCurrent),
     db
       .select({
-        totalVisits: db.fn.count(),
-        uniqueVisitors: db.fn.countDistinct(analyticsEvents.visitorId),
+        totalVisits: sql`count(*)`,
+        uniqueVisitors: sql`count(distinct ${analyticsEvents.visitorId})`,
       })
       .from(analyticsEvents)
-      .where(...conditionsPrevious),
+      .where(and(...conditionsPrevious)),
   ]);
 
   const previousTotals = {
     totalVisits: Number(previousTotalsRes[0]?.totalVisits || 0),
     uniqueVisitors: Number(previousTotalsRes[0]?.uniqueVisitors || 0),
   };
+  
+    const formatChange = (val: number | null) =>
+  val === null ? null : `${val > 0 ? "+" : ""}${val.toFixed(1)}%`;
 
-  const totalVisitsChange = calcPercentChange(
-    commonData.totalVisits,
-    previousTotals.totalVisits
-  );
-  const uniqueVisitorsChange = calcPercentChange(
-    commonData.uniqueVisitors,
-    previousTotals.uniqueVisitors
-  );
+const totalVisitsChange = formatChange(calcPercentChange(
+  commonData.totalVisits,
+  previousTotals.totalVisits
+));
+const uniqueVisitorsChange = formatChange(calcPercentChange(
+  commonData.uniqueVisitors,
+  previousTotals.uniqueVisitors
+));
 
+
+  // frequency: group by time buckets using date_trunc
+  // Note: bucketFormat is a string like 'hour', 'day', 'month'
   const frequency = await db
     .select({
-      time: db.raw(
-        `date_trunc('${bucketFormat}', ${analyticsEvents.timestamp.name})`
-      ),
-      totalVisits: db.fn.count(),
-      uniqueVisitors: db.fn.countDistinct(analyticsEvents.visitorId),
+      time: sql`date_trunc(${sql.raw(String(bucketFormat))}, ${analyticsEvents.timestamp})`,
+      totalVisits: sql`count(*)`,
+      uniqueVisitors: sql`count(distinct ${analyticsEvents.visitorId})`,
     })
     .from(analyticsEvents)
-    .where(...conditionsCurrent)
+    .where(and(...conditionsCurrent))
     .groupBy(
-      db.raw(`date_trunc('${bucketFormat}', ${analyticsEvents.timestamp.name})`)
+      sql`date_trunc(${sql.raw(String(bucketFormat))}, ${analyticsEvents.timestamp})`
     )
     .orderBy(
-      db.raw(`date_trunc('${bucketFormat}', ${analyticsEvents.timestamp.name})`)
+      sql`date_trunc(${sql.raw(String(bucketFormat))}, ${analyticsEvents.timestamp})`
     );
 
   return c.json({
     success: true,
     filter,
+    ...(eventName ? { eventName } : {}),
     ...commonData,
     totalVisitsChange,
     uniqueVisitorsChange,
     frequency,
   });
-});
+}
 
-// GET /:id/analytics/:eventName get analytics for custom event
-analyticsRoutes.get("/:id/analytics/:eventName", async (c) => {
-  const currentUser = await getUserOrThrow(c);
-  const projectId = c.req.param("id");
-  const eventName = c.req.param("eventName");
-
-  if (!(await getProjectMembership(projectId, currentUser.uuid))) {
-    return c.json({ error: "Forbidden" }, 403);
-  }
-
-  const filter = (c.req.query("filter") || "today").toLowerCase();
-  if (!allowedFilters.includes(filter)) {
-    return c.json({ error: "Invalid filter" }, 400);
-  }
-
-  const { startTime, endTime, bucketFormat } = getTimeRange(filter);
-  const prevRange = getPreviousTimeRange(filter, startTime, endTime);
-
-  const conditionsCurrent = [
-    eq(analyticsEvents.projectId, projectId),
-    eq(analyticsEvents.eventName, eventName),
-    analyticsEvents.timestamp.gte(startTime),
-  ];
-  if (endTime) conditionsCurrent.push(analyticsEvents.timestamp.lte(endTime));
-
-  const conditionsPrevious = [
-    eq(analyticsEvents.projectId, projectId),
-    eq(analyticsEvents.eventName, eventName),
-    analyticsEvents.timestamp.gte(prevRange.startTime),
-    analyticsEvents.timestamp.lte(prevRange.endTime),
-  ];
-
-  // Get common data and previous totals in parallel
-  const [commonData, previousTotalsRes] = await Promise.all([
-    getCommonAggregations(projectId, conditionsCurrent),
-    db
-      .select({
-        totalVisits: db.fn.count(),
-        uniqueVisitors: db.fn.countDistinct(analyticsEvents.visitorId),
-      })
-      .from(analyticsEvents)
-      .where(...conditionsPrevious),
-  ]);
-
-  const previousTotals = {
-    totalVisits: Number(previousTotalsRes[0]?.totalVisits || 0),
-    uniqueVisitors: Number(previousTotalsRes[0]?.uniqueVisitors || 0),
-  };
-
-  const totalVisitsChange = calcPercentChange(
-    commonData.totalVisits,
-    previousTotals.totalVisits
-  );
-  const uniqueVisitorsChange = calcPercentChange(
-    commonData.uniqueVisitors,
-    previousTotals.uniqueVisitors
-  );
-
-  const frequency = await db
-    .select({
-      time: db.raw(
-        `date_trunc('${bucketFormat}', ${analyticsEvents.timestamp.name})`
-      ),
-      totalVisits: db.fn.count(),
-      uniqueVisitors: db.fn.countDistinct(analyticsEvents.visitorId),
-    })
-    .from(analyticsEvents)
-    .where(...conditionsCurrent)
-    .groupBy(
-      db.raw(`date_trunc('${bucketFormat}', ${analyticsEvents.timestamp.name})`)
-    )
-    .orderBy(
-      db.raw(`date_trunc('${bucketFormat}', ${analyticsEvents.timestamp.name})`)
-    );
-
-  return c.json({
-    success: true,
-    filter,
-    eventName,
-    ...commonData,
-    totalVisitsChange,
-    uniqueVisitorsChange,
-    frequency,
-  });
-});
+// --- Routes ---
+analyticsRoutes.get("/:id/analytics", (c) => fetchAnalytics(c));
+analyticsRoutes.get("/:id/analytics/:eventName", (c) =>
+  fetchAnalytics(c, c.req.param("eventName"))
+);
 
 export default analyticsRoutes;

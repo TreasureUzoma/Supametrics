@@ -1,6 +1,5 @@
 import { Hono } from "hono";
 import { db } from "../db/index.js";
-import type { Context } from "hono/jsx";
 import {
   projectApiKeys,
   projectMembers,
@@ -14,17 +13,24 @@ import { createProjectSchema } from "../lib/zod.js";
 import { slugifyProjectName } from "../lib/slugify.js";
 import { generateApiKeys, getPaginationParams } from "../lib/utils.js";
 import {
-  getUserOrThrow,
-  getProjectOrThrow,
+  getUserOrNull,
+  getProjectOrNull,
   getProjectMembership,
   isOwnerOrAdmin,
 } from "../helpers/projects.js";
+import type { AuthType } from "../lib/auth.js";
+import { getWeeklyProjectAggregate } from "../helpers/project-analytics.js";
 
-const projectRoutes = new Hono();
+const projectRoutes = new Hono<{ Variables: AuthType }>();
 
 // create new project
 projectRoutes.post("/new", async (c) => {
-  const currentUser = await getUserOrThrow(c);
+  const currentUser = await getUserOrNull(c);
+
+  // validate authentication
+  if (!currentUser?.uuid) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
 
   const body = await c.req.json();
   const parsed = createProjectSchema.safeParse(body);
@@ -122,7 +128,12 @@ projectRoutes.post("/new", async (c) => {
 
 // get all projects
 projectRoutes.get("/", async (c) => {
-  const currentUser = await getUserOrThrow(c);
+  const currentUser = await getUserOrNull(c);
+
+  // Validate authentication
+  if (!currentUser?.uuid) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
   const userId = currentUser.uuid;
   const { page, limit, offset } = getPaginationParams(c);
 
@@ -166,8 +177,16 @@ projectRoutes.get("/", async (c) => {
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
-  const paginated = allProjects.slice(offset, offset + limit);
+  const paginated = await Promise.all(
+    allProjects.slice(offset, offset + limit).map(async (project) => {
+      const weeklyAgg = await getWeeklyProjectAggregate(project.uuid);
 
+      return {
+        ...project,
+        analytics: weeklyAgg,
+      };
+    })
+  );
   return c.json({
     success: true,
     projects: paginated,
@@ -182,9 +201,17 @@ projectRoutes.get("/", async (c) => {
 
 // Rotate key
 projectRoutes.post("/:id/rotate-key", async (c) => {
-  const currentUser = await getUserOrThrow(c);
+  const currentUser = await getUserOrNull(c);
   const projectId = c.req.param("id");
-  const project = await getProjectOrThrow(projectId);
+  const project = await getProjectOrNull(projectId);
+
+  if (!currentUser?.uuid) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  if (!project) {
+    return c.json({ error: "Project missing" }, 401);
+  }
 
   if (!(await isOwnerOrAdmin(project, currentUser.uuid)))
     return c.json({ error: "Forbidden" }, 403);
@@ -201,15 +228,23 @@ projectRoutes.post("/:id/rotate-key", async (c) => {
 
 // Delete project
 projectRoutes.delete("/:id", async (c) => {
-  const currentUser = await getUserOrThrow(c);
+  const currentUser = await getUserOrNull(c);
   const projectId = c.req.param("id");
-  const project = await getProjectOrThrow(projectId);
+  const project = await getProjectOrNull(projectId)!;
 
-  if (project.userId && project.userId !== currentUser.uuid)
+  if (!currentUser?.uuid) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  if (!project) {
+    return c.json({ error: "Project cannot be null" }, 401);
+  }
+
+  if (project.userId && project?.userId !== currentUser.uuid)
     return c.json({ error: "Forbidden" }, 403);
 
   if (project.teamId) {
-    const member = await getProjectMembership(project.uuid, currentUser.uuid);
+    const member = await getProjectMembership(project?.uuid, currentUser.uuid);
     if (!member || member.role !== "admin")
       return c.json({ error: "Only admins can delete this project" }, 403);
   }
@@ -220,11 +255,19 @@ projectRoutes.delete("/:id", async (c) => {
 
 // read overview
 projectRoutes.get("/:id", async (c) => {
-  const currentUser = await getUserOrThrow(c);
+  const currentUser = await getUserOrNull(c);
   const projectId = c.req.param("id");
-  const project = await getProjectOrThrow(projectId);
+  const project = await getProjectOrNull(projectId);
 
   let role: "owner" | "admin" | "editor" | "viewer" = "viewer";
+
+  if (!currentUser?.uuid) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  if (!project) {
+    return c.json({ error: "Project cannot be null" }, 403);
+  }
 
   if (project.userId === currentUser.uuid) {
     role = "admin";
@@ -255,12 +298,16 @@ projectRoutes.get("/:id", async (c) => {
 
 // Invite to project
 projectRoutes.post("/:id/invite", async (c) => {
-  const currentUser = await getUserOrThrow(c);
+  const currentUser = await getUserOrNull(c);
   const projectId = c.req.param("id");
   const { email, role } = await c.req.json();
 
   if (!["admin", "editor", "viewer"].includes(role))
     return c.json({ error: "Invalid role" }, 400);
+
+  if (!currentUser?.uuid) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
 
   const membership = await getProjectMembership(projectId, currentUser.uuid);
   if (!membership || membership.role !== "admin")
@@ -274,12 +321,17 @@ projectRoutes.post("/:id/invite", async (c) => {
 
 // Edit member role
 projectRoutes.patch("/:id/role", async (c) => {
-  const currentUser = await getUserOrThrow(c);
+  const currentUser = await getUserOrNull(c);
   const projectId = c.req.param("id");
   const { targetUserId, newRole } = await c.req.json();
 
   if (!["admin", "editor", "viewer"].includes(newRole))
     return c.json({ error: "Invalid role" }, 400);
+
+  // validate authentication
+  if (!currentUser?.uuid) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
 
   const membership = await getProjectMembership(projectId, currentUser.uuid);
   if (!membership || membership.role !== "admin")
@@ -300,11 +352,20 @@ projectRoutes.patch("/:id/role", async (c) => {
 
 // patch (update)
 projectRoutes.patch("/:id", async (c) => {
-  const currentUser = await getUserOrThrow(c);
+  const currentUser = await getUserOrNull(c);
   const projectId = c.req.param("id");
   const { name, description } = await c.req.json();
 
-  const project = await getProjectOrThrow(projectId);
+  const project = await getProjectOrNull(projectId);
+
+  // Validate authentication
+  if (!currentUser?.uuid) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  if (!project) {
+    return c.json({ error: "Project cannot be null" }, 403);
+  }
 
   const isAdminOrOwner =
     project.userId === currentUser.uuid ||
@@ -326,9 +387,18 @@ projectRoutes.patch("/:id", async (c) => {
 
 // get project members
 projectRoutes.get("/:id/members", async (c) => {
-  const currentUser = await getUserOrThrow(c);
+  const currentUser = await getUserOrNull(c);
   const projectId = c.req.param("id");
-  const project = await getProjectOrThrow(projectId);
+  const project = await getProjectOrNull(projectId);
+
+  // validate authentication
+  if (!currentUser?.uuid) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  if (!project) {
+    return c.json({ error: "Project cannot be null" }, 403);
+  }
 
   // Ensure current user is part of the project
   if (project.userId !== currentUser.uuid) {
@@ -344,11 +414,10 @@ projectRoutes.get("/:id/members", async (c) => {
     .from(projectMembers)
     .where(eq(projectMembers.projectId, projectId));
 
-  // Include owner if personal project
   if (project.userId) {
     members.push({
       userId: project.userId,
-      role: "owner",
+      role: "admin",
     });
   }
 
@@ -357,7 +426,13 @@ projectRoutes.get("/:id/members", async (c) => {
 
 // leave project
 projectRoutes.delete("/:id/leave", async (c) => {
-  const currentUser = await getUserOrThrow(c);
+  const currentUser = await getUserOrNull(c);
+
+  // Validate authentication
+  if (!currentUser?.uuid) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
   const projectId = c.req.param("id");
   const membership = await getProjectMembership(projectId, currentUser.uuid);
 

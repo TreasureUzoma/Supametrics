@@ -4,22 +4,38 @@ import { projects, projectMembers } from "../db/schema.js";
 import { eq, and } from "drizzle-orm";
 import type { AuthType } from "../lib/auth.js";
 
-export async function getUserOrThrow(c: Context<{ Variables: AuthType }>) {
-  const user = c.get("user");
-  if (!user) return c.json({ error: "Unauthorized" }, 401);
-  return user;
+export type Project = typeof projects.$inferSelect;
+export type ProjectMember = typeof projectMembers.$inferSelect;
+export type User = AuthType["user"];
+
+export enum ProjectRole {
+  Owner = "owner",
+  Admin = "admin",
+  Member = "member",
 }
 
-export async function getProjectOrThrow(projectId: string) {
+export async function getUserOrNull(
+  c: Context<{ Variables: AuthType }>
+): Promise<User | null> {
+  const user = c?.get("user");
+  return user ?? null;
+}
+
+export async function getProjectOrNull(
+  projectId: string
+): Promise<Project | null> {
   const [project] = await db
     .select()
     .from(projects)
     .where(eq(projects.uuid, projectId));
-  if (!project) throw new Error("Project not found");
-  return project;
+  return project ?? null;
 }
 
-export async function getProjectMembership(projectId: string, userId: string) {
+export async function getProjectMembership(
+  projectId: string,
+  userId?: string
+): Promise<ProjectMember | null> {
+  if (!userId) return null;
   const [membership] = await db
     .select()
     .from(projectMembers)
@@ -29,16 +45,22 @@ export async function getProjectMembership(projectId: string, userId: string) {
         eq(projectMembers.userId, userId)
       )
     );
-  return membership;
+  return membership ?? null;
 }
 
-export async function isAdmin(projectId: string, userId: string) {
+export async function isAdmin(
+  projectId: string,
+  userId: string
+): Promise<boolean> {
   const membership = await getProjectMembership(projectId, userId);
-  return membership?.role === "admin";
+  return membership?.role === ProjectRole.Admin;
 }
 
-export async function isOwnerOrAdmin(project: any, userId: string) {
-  if (project.userId === userId) return true;
+export async function isOwnerOrAdmin(
+  project: Project,
+  userId: string
+): Promise<boolean> {
+  if (project.userId === userId) return true; // Owner
   const membership = await getProjectMembership(project.uuid, userId);
-  return membership?.role === "admin";
+  return membership?.role === ProjectRole.Admin;
 }

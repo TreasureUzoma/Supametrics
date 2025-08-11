@@ -153,3 +153,25 @@ export const analyticsEvents = pgTable("analytics_events", {
 
   duration: integer("duration"), // in seconds
 });
+
+// Reports
+export const reports = pgTable("reports", {
+  id: serial("id").primaryKey(),
+  uuid: uuid("uuid").defaultRandom().notNull().unique(),
+
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.uuid, { onDelete: "cascade" }),
+
+  name: varchar("name", { length: 256 }).notNull(), // report title
+  description: text("description"), // optional details
+  type: varchar("type", { length: 64 }).notNull(), // e.g. "analytics", "crash", "custom"
+  data: jsonb("data").notNull(), // actual report payload
+
+  createdBy: uuid("created_by")
+    .notNull()
+    .references(() => user.uuid, { onDelete: "set null" }), // who generated it
+
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
