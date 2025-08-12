@@ -5,6 +5,8 @@ import { withAuth } from "./middleware/session.js";
 import { rateLimiter } from "./middleware/rate-limiter.js";
 
 import authRoutes from "./handlers/auth.js";
+import overviewRoute from "./handlers/overview.js";
+
 import projectRoutes from "./handlers/projects.js";
 import analyticsRoutes from "./handlers/analytics.js";
 import reportRoutes from "./handlers/reports.js";
@@ -44,6 +46,9 @@ v1.get("/health", rateLimiter(60 * 1000, 5), (c) => {
 
 // auth routes (no rate limiting for now)
 v1.route("/auth", authRoutes);
+
+v1.route("/overview", overviewRoute.use(rateLimiter(60 * 60 * 1000, 100)));
+
 
 // everything else requires authentication
 v1.use("*", withAuth);

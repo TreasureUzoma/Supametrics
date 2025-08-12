@@ -1,62 +1,69 @@
 import { Hono } from "hono";
-import { eq, count } from "drizzle-orm";
-import { db } from "../db/index.js";
-import { reports } from "../db/schema.js";
-import { getUserOrNull } from "../helpers/projects.js";
-import { getProjectMembership } from "../helpers/projects.js";
-import { getPaginationParams } from "../helpers/pagination.js";
+import { db } from "../db";
+import { teams, teamMembers, teamInvites } from "../db/schema";
+import { user } from "../db/auth-schema";
+import { nanoid } from "nanoid";
+import { eq } from "drizzle-orm";
+import { getUserOrNull } from "../helpers/projects";
 import type { AuthType } from "../lib/auth.js";
 
-export const reportRoutes = new Hono<{ Variables: AuthType }>();
+const teamRoutes = new Hono<{ Variables: AuthType }>();
 
-reportRoutes.get("/:id/reports", async (c) => {
+// GET /teams - all teams user is in
+teamRoutes.get("/", async (c) => {
   const currentUser = await getUserOrNull(c);
-  const projectId = c.req.param("id");
-
-  // validate project ID
-  if (!projectId) {
-    return c.json({ error: "Project ID is required" }, 400);
-  }
 
   // Validate authentication
   if (!currentUser?.uuid) {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
-  // check project membership
-  const membership = await getProjectMembership(projectId, currentUser.uuid);
-  if (!membership) {
-    return c.json({ error: "Forbidden" }, 403);
-  }
+  const results = await db
+    .select({ team: teams, role: teamMembers.role })
+    .from(teamMembers)
+    .innerJoin(teams, eq(teamMembers.teamId, teams.uuid))
+    .where(eq(teamMembers.userId, currentUser.uuid));
 
-  // Get pagination params
-  const { page, limit, offset } = getPaginationParams(c);
-
-  // Fetch reports
-  const reportsList = await db
-    .select()
-    .from(reports)
-    .where(eq(reports.projectId, projectId))
-    .limit(limit)
-    .offset(offset);
-
-  // Count total
-  const totalRes = await db
-    .select({ count: count(reports.id) })
-    .from(reports)
-    .where(eq(reports.projectId, projectId));
-
-  const total = Number(totalRes[0]?.count || 0);
-
-  // Send response
   return c.json({
     success: true,
-    reports: reportsList,
-    pagination: {
-      page,
-      limit,
-      total,
-      totalPages: Math.max(1, Math.ceil(total / limit)),
-    },
+    teams: results.map((r) => ({ ...r.team, role: r.role })),
   });
 });
+
+// POST /teams - create new team (only for paid users)
+teamRoutes.post("/", async (c) => {
+  const currentUser = await getUserOrNull(c);
+
+  // Validate authentication
+  if (!currentUser?.uuid) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  if (currentUser.subscriptionType === "free") {
+    return c.json({ error: "Upgrade to Pro to create teams" }, 403);
+  }
+
+  const { name } = await c.req.json();
+  const slug = name.toLowerCase().replace(/\s+/g, "-");
+
+  const [team] = await db
+    .insert(teams)
+    .values({
+      uuid: nanoid(),
+      name,
+      slug,
+      ownerId: currentUser.uuid,
+    })
+    .returning();
+
+  await db.insert(teamMembers).values({
+    teamId: team.uuid,
+    userId: currentUser.uuid,
+    role: "owner",
+  });
+
+  return c.json({ success: true, team });
+});
+
+
+export default teamRoutes;
