@@ -11,7 +11,7 @@ import {
   pgEnum,
   unique,
 } from "drizzle-orm/pg-core";
-import { user } from "./auth-schema.js";
+import { user } from "./auth-schema.js"; // NB: remove the .js when runing npx drizzle-kit generate
 
 // Enums
 export const teamRoleEnum = pgEnum("team_role", ["owner", "member", "viewer"]);

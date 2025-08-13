@@ -8,6 +8,13 @@
       "when": 1754733037144,
       "tag": "0000_majestic_tigra",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1755087245430,
+      "tag": "0001_workable_sunfire",
+      "breakpoints": true
     }
   ]
 }

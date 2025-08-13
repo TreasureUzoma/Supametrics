@@ -1,10 +1,10 @@
 import { Hono } from "hono";
-import { db } from "../db";
-import { teams, teamMembers, teamInvites } from "../db/schema";
-import { user } from "../db/auth-schema";
+import { db } from "../db/index.js";
+import { teams, teamMembers } from "../db/schema.js";
 import { nanoid } from "nanoid";
+import { user } from "../db/auth-schema.js";
 import { eq } from "drizzle-orm";
-import { getUserOrNull } from "../helpers/projects";
+import { getUserOrNull } from "../helpers/projects.js";
 import type { AuthType } from "../lib/auth.js";
 
 const teamRoutes = new Hono<{ Variables: AuthType }>();
@@ -39,7 +39,18 @@ teamRoutes.post("/", async (c) => {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
-  if (currentUser.subscriptionType === "free") {
+  // Fetch subscription type fresh from DB
+  const [dbUser] = await db
+    .select({ subscriptionType: user.subscriptionType })
+    .from(user)
+    .where(eq(user.uuid, currentUser.uuid))
+    .limit(1);
+
+  if (!dbUser) {
+    return c.json({ error: "User not found" }, 404);
+  }
+
+  if (dbUser.subscriptionType === "free") {
     return c.json({ error: "Upgrade to Pro to create teams" }, 403);
   }
 
@@ -64,6 +75,5 @@ teamRoutes.post("/", async (c) => {
 
   return c.json({ success: true, team });
 });
-
 
 export default teamRoutes;

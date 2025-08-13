@@ -47,14 +47,14 @@ v1.get("/health", rateLimiter(60 * 1000, 5), (c) => {
 // auth routes (no rate limiting for now)
 v1.route("/auth", authRoutes);
 
-v1.route("/overview", overviewRoute.use(rateLimiter(60 * 60 * 1000, 100)));
-
-
 // everything else requires authentication
 v1.use("*", withAuth);
 
 // projects routes — 100 requests per hour
 v1.route("/projects", projectRoutes.use(rateLimiter(60 * 60 * 1000, 100)));
+
+// overview route
+v1.route("/overview", overviewRoute.use(rateLimiter(60 * 60 * 1000, 100)));
 
 // analytics routes — 50 requests per hour
 v1.route("/analytics", analyticsRoutes.use(rateLimiter(60 * 60 * 1000, 50)));

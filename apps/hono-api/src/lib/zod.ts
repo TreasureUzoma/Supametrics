@@ -22,3 +22,10 @@ export const  createNewTeamSchema = z.object({
     .max(200, "Description too long")
     .optional(),
 });
+
+export const updateProfileSchema = z.object({
+  name: z.string().min(2).max(100).optional(),
+  image: z.string().url().optional(),
+});
+
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;

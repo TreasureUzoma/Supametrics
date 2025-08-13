@@ -1,6 +1,6 @@
 import { db } from "../db/index.js";
 import { analyticsEvents } from "../db/schema.js";
-import { and, eq, gte, lt } from "drizzle-orm";
+import { and, gte, lt, inArray, eq } from "drizzle-orm";
 
 const formatChange = (val: number | null) =>
   val === null ? null : `${val > 0 ? "+" : ""}${val.toFixed(1)}%`;
@@ -13,64 +13,79 @@ const calcPercentChange = (
   return ((current - previous) / previous) * 100;
 };
 
-export async function getWeeklyProjectAggregate(projectId: string) {
+export async function getWeeklyProjectAggregate(projectId: string | string[]) {
+  const ids = Array.isArray(projectId) ? projectId : [projectId];
+  if (ids.length === 0) return {};
+
   const now = new Date();
 
-  // Current week range
   const weekStart = new Date(now);
   weekStart.setDate(now.getDate() - 7);
 
-  // Previous week range
   const prevWeekStart = new Date(weekStart);
   prevWeekStart.setDate(weekStart.getDate() - 7);
 
-  // Fetch current week events
   const currentWeekEvents = await db
     .select({
+      projectId: analyticsEvents.projectId,
       visitorId: analyticsEvents.visitorId,
-      sessionId: analyticsEvents.sessionId,
     })
     .from(analyticsEvents)
     .where(
       and(
-        eq(analyticsEvents.projectId, projectId),
+        inArray(analyticsEvents.projectId, ids),
         gte(analyticsEvents.timestamp, weekStart)
       )
     );
 
-  // Fetch previous week events
   const prevWeekEvents = await db
     .select({
+      projectId: analyticsEvents.projectId,
       visitorId: analyticsEvents.visitorId,
-      sessionId: analyticsEvents.sessionId,
     })
     .from(analyticsEvents)
     .where(
       and(
-        eq(analyticsEvents.projectId, projectId),
+        inArray(analyticsEvents.projectId, ids),
         gte(analyticsEvents.timestamp, prevWeekStart),
         lt(analyticsEvents.timestamp, weekStart)
       )
     );
 
-  const totalVisitors = currentWeekEvents.length;
-  const uniqueVisitors = new Set(
-    currentWeekEvents.map((e) => e.visitorId).filter(Boolean)
-  ).size;
+  const result: Record<
+    string,
+    {
+      totalVisitors: number;
+      uniqueVisitors: number;
+      totalVisitsChange: string | null;
+      uniqueVisitorsChange: string | null;
+    }
+  > = {};
 
-  const prevTotalVisitors = prevWeekEvents.length;
-  const prevUniqueVisitors = new Set(
-    prevWeekEvents.map((e) => e.visitorId).filter(Boolean)
-  ).size;
+  for (const id of ids) {
+    const curr = currentWeekEvents.filter((e) => e.projectId === id);
+    const prev = prevWeekEvents.filter((e) => e.projectId === id);
 
-  return {
-    totalVisitors,
-    uniqueVisitors,
-    totalVisitsChange: formatChange(
-      calcPercentChange(totalVisitors, prevTotalVisitors)
-    ),
-    uniqueVisitorsChange: formatChange(
-      calcPercentChange(uniqueVisitors, prevUniqueVisitors)
-    ),
-  };
+    const totalVisitors = curr.length;
+    const uniqueVisitors = new Set(curr.map((e) => e.visitorId).filter(Boolean))
+      .size;
+
+    const prevTotalVisitors = prev.length;
+    const prevUniqueVisitors = new Set(
+      prev.map((e) => e.visitorId).filter(Boolean)
+    ).size;
+
+    result[id] = {
+      totalVisitors,
+      uniqueVisitors,
+      totalVisitsChange: formatChange(
+        calcPercentChange(totalVisitors, prevTotalVisitors)
+      ),
+      uniqueVisitorsChange: formatChange(
+        calcPercentChange(uniqueVisitors, prevUniqueVisitors)
+      ),
+    };
+  }
+
+  return Array.isArray(projectId) ? result : result[projectId];
 }
