@@ -1,12 +1,18 @@
 import crypto from "crypto";
 import type { MiddlewareHandler } from "hono";
-import { getRedis } from "../lib/redis";
+import { getRedis } from "../lib/redis.js";
 
-export function rateLimiter(windowMs: number, maxReq: number): MiddlewareHandler {
+export function rateLimiter(
+  windowMs: number,
+  maxReq: number
+): MiddlewareHandler {
   return async (c, next) => {
     const userAgent = c.req.header("User-Agent") || "unknown";
-    const ip = c.req.header("x-forwarded-for") || c.req.raw?.socket?.remoteAddress || "unknown";
-    const key = crypto.createHash("sha256").update(userAgent + ip).digest("hex");
+    const ip = c.req.header("x-forwarded-for") || "unknown";
+    const key = crypto
+      .createHash("sha256")
+      .update(userAgent + ip)
+      .digest("hex");
 
     const redis = await getRedis();
     const now = Date.now();
@@ -17,6 +23,8 @@ export function rateLimiter(windowMs: number, maxReq: number): MiddlewareHandler
     tx.zCard(`rate:${key}`);
 
     const results = await tx.exec();
+
+    // @ts-ignore
     const reqCount = results[2] as number;
 
     if (reqCount > maxReq) {

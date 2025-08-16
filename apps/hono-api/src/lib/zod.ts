@@ -9,22 +9,19 @@ export const createProjectSchema = z.object({
   description: z.string().optional(),
   teamId: z.string().uuid().optional(),
   userId: z.string().uuid().optional(),
-  website: z.string(4).optional(88),
+  website: z.string().min(4).max(40).optional(),
 });
 
-export const  createNewTeamSchema = z.object({
+export const createNewTeamSchema = z.object({
   name: z
     .string()
     .min(3, "Team name must be at least 3 characters")
     .max(50, "Team name must be less than 50 characters"),
-  description: z
-    .string()
-    .max(200, "Description too long")
-    .optional(),
+  description: z.string().max(200, "Description too long").optional(),
 });
 
 export const updateProfileSchema = z.object({
-  name: z.string().min(2).max(100).optional(),
+  name: z.string().min(4).max(100).optional(),
   image: z.string().url().optional(),
 });
 
