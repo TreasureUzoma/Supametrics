@@ -1,3 +1,5 @@
+package roadmap
+
 // Supametrics Worker Roadmap – Go Fiber
 //
 // Scope:
@@ -9,10 +11,8 @@
 // - Redis for caching + job queue
 // - Neon PostgreSQL for persistent storage
 
-
 // TODO: Build a fancy api to show progress perc.
 
-package roadmap
 
 var Roadmap = map[string]any{
 	"phases": []map[string]any{
