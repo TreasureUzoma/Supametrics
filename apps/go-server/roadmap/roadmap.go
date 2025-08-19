@@ -21,7 +21,7 @@ var Roadmap = map[string]any{
 			"tasks": []string{
 				"Set up Go Fiber project structure",
 				"Connect to Neon PostgreSQL",
-				"Connect to Redis for caching + rate limits",
+				"Connect to Redis for caching + rate limits + batching",
 				"Env config for DB_URL, REDIS_URL",
 				"Middleware: request logging, recovery, CORS",
 			},
@@ -29,7 +29,7 @@ var Roadmap = map[string]any{
 		{
 			"phase": "Phase 2: API Key Based Analytics",
 			"tasks": []string{
-				"API key authentication middleware (per project)",
+				"API key authentication middleware (per project via public/private key)",
 				"Store incoming analytics events in Postgres",
 				"Support batched event ingestion",
 				"Cache hot analytics data in Redis",
@@ -39,10 +39,10 @@ var Roadmap = map[string]any{
 		{
 			"phase": "Phase 3: Analytics & Reports Writing & Retrievals",
 			"tasks": []string{
-				"Endpoint: POST /analytics (requires API key)",
-				"Endpoint: GET /analytics/:id (requires API key)",
-				"Endpoint: GET /reports:id (requires API key)",
-				"Endpoint: GET /analytics/:id/:eventName (requires API key)",
+				"Endpoint: POST /analytics (requires API public key)",
+				"Endpoint: GET /analytics/:id (requires API private key)",
+				"Endpoint: GET /reports:id (requires API private key)",
+				"Endpoint: GET /analytics/:id/:eventName (requires API private key)",
 				"Secret key based endpoint for owner-level access",
 				"Pagination for large result sets",
 				"Basic aggregation (count, sum, unique)",
