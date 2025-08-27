@@ -5,6 +5,9 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
+
+	"supametrics/handlers"
+	"supametrics/middleware"
 )
 
 func main() {
@@ -28,6 +31,8 @@ func main() {
 			"message": "API is healthy",
 		})
 	})
+
+	v1.Post("/analytics/log", middleware.VerifyPublicKey, handlers.LogAnalyticsEvent)
 
 	app.Listen(":3005")
 }

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"supametrics/db"
+
 	"github.com/redis/go-redis/v9"
 )
 
@@ -67,10 +68,10 @@ func ExistsCache(prefix, id string) (bool, error) {
 // IncrementCache increments a key in Redis with TTL
 func IncrementCache(namespace, key string, ttl time.Duration) (int, error) {
 	fullKey := namespace + ":" + key
-	count, err := redisClient.Incr(ctx, fullKey).Result()
+	count, err := db.Redis.Incr(db.Ctx, fullKey).Result()
 	if err != nil {
 		return 0, err
 	}
-	redisClient.Expire(ctx, fullKey, ttl)
+	db.Redis.Expire(db.Ctx, fullKey, ttl)
 	return int(count), nil
 }

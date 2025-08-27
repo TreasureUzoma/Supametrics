@@ -1,0 +1,68 @@
+[
+  {
+    "name": "Free",
+    "price": "Free",
+    "description": "Great for individuals, small teams, or testing the waters.",
+    "features": [
+      "Full access to real-time analytics",
+      "Limited to 3 projects per user",
+      "15k monthly requests for each project",
+      "Limited to 30 link shortening per day",
+      "Contact via chat support",
+      "30 days data retention"
+    ],
+    "buttonText": "Get Started",
+    "buttonLink": "/signup"
+  },
+  {
+    "name": "Pro",
+    "price": "$12/month",
+    "description": "Great for solo users, freelancers, or small business owners.",
+    "features": [
+      "Limited to 10 projects per user",
+      "200k monthly request limit for each project",
+      "Enhanced analytics with user segmentation",
+      "Limited access to Supametrics AI Suggestions",
+      "Support for Shopify, Vue, Kotlin, and additional integrations",
+      "Shortened link customization",
+      "Limited to 200 link shortening per day",
+      "Priority chat and email support",
+      "90 days data retention"
+    ],
+    "buttonText": "Start Free Trial",
+    "buttonLink": "/signup"
+  },
+  {
+    "name": "Growth",
+    "price": "$49/month",
+    "description": "Perfect for growing teams and scaling projects.",
+    "features": [
+      "All Pro features included",
+      "Enhanced analytics with user segmentation",
+      "500k monthly request limit for each project",
+      "Unlimited Supametrics AI Suggestions",
+      "More customizations for shortened links",
+      "Unlimited link shortening",
+      "24/7 priority support",
+      "180 days data retention"
+    ],
+    "buttonText": "Start Free Trial",
+    "buttonLink": "/signup"
+  },
+  {
+    "name": "Enterprise",
+    "price": "Custom Pricing",
+    "description": "Tailored solutions for large teams and enterprises.",
+    "features": [
+      "All Growth features included",
+      "Unlimited access to Supametrics AI",
+      "Custom analytics dashboards",
+      "Dedicated account manager",
+      "On-premises deployment available",
+      "24/7 priority support",
+      "Custom data retention policies"
+    ],
+    "buttonText": "Contact Sales",
+    "buttonLink": "/contact"
+  }
+]

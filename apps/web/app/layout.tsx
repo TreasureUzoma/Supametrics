@@ -2,6 +2,9 @@ import "@repo/ui/styles.css";
 import "./globals.css";
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
+import Footer from "../components/footer";
+import { ThemeProvider } from "../components/theme-provider";
+import { Header } from "@/components/header";
 
 const geist = Geist({ subsets: ["latin"] });
 
@@ -24,7 +27,19 @@ export default function RootLayout({
           href="https://api.fontshare.com/v2/css?f[]=switzer@100,200,300,400,500,600,700,800,900&display=swap"
         />
       </head>
-      <body className={geist.className}>{children}</body>
+      <body className={geist.className}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <Header />
+          {children}
+
+          <Footer />
+        </ThemeProvider>
+      </body>
     </html>
   );
 }
