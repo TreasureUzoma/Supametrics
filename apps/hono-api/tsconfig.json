@@ -1,6 +1,11 @@
 {
   "compilerOptions": {
     "target": "ESNext",
+    "baseUrl": ".",
+    "paths": {
+      "@repo/ui/*": ["../../packages/ui/src/*"],
+      "@/*": ["./src/*"]
+    },
     "module": "NodeNext",
     "strict": true,
     "verbatimModuleSyntax": true,

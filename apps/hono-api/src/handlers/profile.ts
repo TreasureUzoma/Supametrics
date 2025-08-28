@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { db } from "../db/index.js";
 import { user } from "../db/auth-schema.js";
 import { eq } from "drizzle-orm";
-import { updateProfileSchema } from "../lib/zod.js";
+import { updateProfileSchema } from "@repo/ui/lib/zod.js";
 import type { AuthType } from "../lib/auth.js";
 import { getUserOrNull } from "../helpers/projects.js";
 

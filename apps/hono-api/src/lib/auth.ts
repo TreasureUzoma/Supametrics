@@ -11,7 +11,8 @@ export const auth = betterAuth({
       user: authSchema.user,
     },
   }),
-  trustedOrigins: ["http://localhost:3001"],
+  trustedOrigins: [process.env.TRUSTED_ORIGIN!],
+  basePath: "/",
   emailAndPassword: {
     enabled: true,
   },

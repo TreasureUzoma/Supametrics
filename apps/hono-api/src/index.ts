@@ -1,6 +1,8 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 
+import { cors } from "hono/cors";
+
 import { withAuth } from "./middleware/session.js";
 import { rateLimiter } from "./middleware/rate-limiter.js";
 
@@ -43,6 +45,21 @@ v1.get("/health", rateLimiter(60 * 1000, 5), (c) => {
     message: "Server is healthy!",
   });
 });
+
+v1.use(
+  "*",
+  cors({
+    origin: process.env.TRUSTED_ORIGIN || "http://localhost:3002",
+    allowHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Custom-Header",
+      "Upgrade-Insecure-Requests",
+    ],
+    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    credentials: true,
+  })
+);
 
 // auth routes (no rate limiting for now)
 v1.route("/auth", authRoutes);

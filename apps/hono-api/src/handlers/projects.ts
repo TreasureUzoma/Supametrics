@@ -9,7 +9,7 @@ import {
 import { user } from "../db/auth-schema.js";
 import { eq, and, isNull } from "drizzle-orm";
 import { nanoid } from "nanoid";
-import { createProjectSchema } from "../lib/zod.js";
+import { createProjectSchema } from "@/lib/zod.js";
 import { slugifyProjectName } from "../lib/slugify.js";
 import { generateApiKeys, getPaginationParams } from "../lib/utils.js";
 import {

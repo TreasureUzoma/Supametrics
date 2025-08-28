@@ -1,0 +1,230 @@
+"use client";
+
+import { usePathname } from "next/navigation";
+import Link from "next/link";
+import { useMemo } from "react";
+import { cn } from "@repo/ui/lib/utils";
+import { Button } from "@repo/ui/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@repo/ui/components/ui/card";
+import { Input } from "@repo/ui/components/ui/input";
+import { Label } from "@repo/ui/components/ui/label";
+import { IconBrandGithub, IconBrandGoogle } from "@tabler/icons-react";
+
+import { useAuth } from "@/hooks/use-auth";
+
+export function AuthForm({ className, ...props }: React.ComponentProps<"div">) {
+  const pathname = usePathname();
+  const mode = useMemo<"login" | "signup" | "forgot">(() => {
+    if (pathname === "/signup") return "signup";
+    if (pathname === "/forgot-password") return "forgot";
+    return "login";
+  }, [pathname]);
+
+  const {
+    signup,
+    signin,
+    googleLogin,
+    loading,
+    error,
+    email,
+    password,
+    name,
+    setEmail,
+    setPassword,
+    setName,
+  } = useAuth();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (mode === "signup") {
+      await signup();
+    } else if (mode === "login") {
+      await signin();
+    } else {
+      // forgot password flow (optional)
+      console.log("TODO: forgot password with", email);
+    }
+  };
+
+  return (
+    <div
+      className={cn(
+        "flex flex-col items-center justify-center md:px-4 md:py-10",
+        className
+      )}
+      {...props}
+    >
+      <Card className="w-full max-w-lg md:w-[700px]">
+        <CardHeader>
+          <CardTitle className="text-lg md:text-2xl">
+            {
+              {
+                login: "Login to Supametrics",
+                signup: "Create a new account",
+                forgot: "Forgot your password?",
+              }[mode]
+            }
+          </CardTitle>
+          <CardDescription className="mb-4">
+            {
+              {
+                login: "Enter your email below to login to your account",
+                signup: "Sign up with your email to get started",
+                forgot: "We'll send you a link to reset your password",
+              }[mode]
+            }
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} noValidate>
+            <div className="flex flex-col gap-6">
+              {mode === "signup" && (
+                <div className="grid gap-2">
+                  <Label htmlFor="name">Name</Label>
+                  <Input
+                    id="name"
+                    type="text"
+                    placeholder="John Doe"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                  />
+                  {error?.name && (
+                    <p className="text-sm text-red-500">{error.name}</p>
+                  )}
+                </div>
+              )}
+
+              <div className="grid gap-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="you@mail.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+                {error?.email && (
+                  <p className="text-sm text-red-500">{error.email}</p>
+                )}
+              </div>
+
+              {mode !== "forgot" && (
+                <div className="grid gap-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                  {error?.password && (
+                    <p className="text-sm text-red-500">{error.password}</p>
+                  )}
+                </div>
+              )}
+
+              {mode === "login" && (
+                <div>
+                  <Link
+                    href="/forgot-password"
+                    className="text-main text-right block text-sm font-semibold"
+                  >
+                    Forgotten Password?
+                  </Link>
+                </div>
+              )}
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading
+                  ? "Please wait..."
+                  : {
+                      login: "Login",
+                      signup: "Sign up",
+                      forgot: "Send reset link",
+                    }[mode]}
+              </Button>
+
+              {mode === "signup" && (
+                <p className="text-sm text-center text-muted-foreground">
+                  By signing up, you agree to our{" "}
+                  <Link
+                    href="/terms"
+                    className="underline underline-offset-4 font-semibold"
+                  >
+                    Terms
+                  </Link>{" "}
+                  and{" "}
+                  <Link
+                    href="/privacy"
+                    className="underline underline-offset-4 font-semibold"
+                  >
+                    Privacy Policy
+                  </Link>
+                  .
+                </p>
+              )}
+
+              {mode !== "forgot" && (
+                <>
+                  <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-border">
+                    <span className="relative z-10 bg-background md:bg-card px-2 text-muted-foreground">
+                      Or continue with
+                    </span>
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full flex items-center justify-center gap-2"
+                    onClick={googleLogin}
+                  >
+                    <IconBrandGoogle size={18} />
+                    Continue with Google
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="-mt-1 w-full flex items-center justify-center gap-2"
+                  >
+                    <IconBrandGithub size={18} />
+                    Continue with GitHub
+                  </Button>
+                </>
+              )}
+            </div>
+
+            {mode !== "forgot" && (
+              <div className="text-center text-sm mt-6">
+                {mode === "login" ? (
+                  <>
+                    Don’t have an account?{" "}
+                    <Link href="/signup" className="text-main font-semibold">
+                      Sign up
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    Already have an account?{" "}
+                    <Link href="/login" className="text-main font-semibold">
+                      Log in
+                    </Link>
+                  </>
+                )}
+              </div>
+            )}
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
