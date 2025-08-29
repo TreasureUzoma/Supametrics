@@ -15,20 +15,24 @@ import {
 import { Input } from "@repo/ui/components/ui/input";
 import { Label } from "@repo/ui/components/ui/label";
 import { IconBrandGithub, IconBrandGoogle } from "@tabler/icons-react";
+import { LoadingSpinner } from "@repo/ui/components/loading-spinner";
 
 import { useAuth } from "@/hooks/use-auth";
 
 export function AuthForm({ className, ...props }: React.ComponentProps<"div">) {
   const pathname = usePathname();
-  const mode = useMemo<"login" | "signup" | "forgot">(() => {
+  const mode = useMemo<"login" | "signup" | "forgot" | "reset">(() => {
     if (pathname === "/signup") return "signup";
     if (pathname === "/forgot-password") return "forgot";
+    if (pathname.startsWith("/reset-password")) return "reset";
     return "login";
   }, [pathname]);
 
   const {
     signup,
     signin,
+    forgotPassword,
+    resetPassword,
     googleLogin,
     loading,
     error,
@@ -37,6 +41,7 @@ export function AuthForm({ className, ...props }: React.ComponentProps<"div">) {
     name,
     setEmail,
     setPassword,
+    validateField,
     setName,
   } = useAuth();
 
@@ -47,9 +52,10 @@ export function AuthForm({ className, ...props }: React.ComponentProps<"div">) {
       await signup();
     } else if (mode === "login") {
       await signin();
-    } else {
-      // forgot password flow (optional)
-      console.log("TODO: forgot password with", email);
+    } else if (mode === "forgot") {
+      await forgotPassword();
+    } else if (mode === "reset") {
+      await resetPassword();
     }
   };
 
@@ -69,6 +75,7 @@ export function AuthForm({ className, ...props }: React.ComponentProps<"div">) {
                 login: "Login to Supametrics",
                 signup: "Create a new account",
                 forgot: "Forgot your password?",
+                reset: "Reset your password",
               }[mode]
             }
           </CardTitle>
@@ -78,6 +85,7 @@ export function AuthForm({ className, ...props }: React.ComponentProps<"div">) {
                 login: "Enter your email below to login to your account",
                 signup: "Sign up with your email to get started",
                 forgot: "We'll send you a link to reset your password",
+                reset: "Enter your new password below to reset your account",
               }[mode]
             }
           </CardDescription>
@@ -94,6 +102,7 @@ export function AuthForm({ className, ...props }: React.ComponentProps<"div">) {
                     placeholder="John Doe"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
+                    onBlur={() => validateField("name", name)}
                     required
                   />
                   {error?.name && (
@@ -102,29 +111,35 @@ export function AuthForm({ className, ...props }: React.ComponentProps<"div">) {
                 </div>
               )}
 
-              <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@mail.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-                {error?.email && (
-                  <p className="text-sm text-red-500">{error.email}</p>
-                )}
-              </div>
-
-              {mode !== "forgot" && (
+              {mode !== "reset" && (
                 <div className="grid gap-2">
-                  <Label htmlFor="password">Password</Label>
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="you@mail.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    onBlur={() => validateField("email", email)}
+                    required
+                  />
+                  {error?.email && (
+                    <p className="text-sm text-red-500">{error.email}</p>
+                  )}
+                </div>
+              )}
+
+              {(mode === "login" || mode === "signup" || mode === "reset") && (
+                <div className="grid gap-2">
+                  <Label htmlFor="password">
+                    {mode === "reset" ? "New Password" : "Password"}
+                  </Label>
                   <Input
                     id="password"
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    onBlur={() => validateField("password", password)}
                     required
                   />
                   {error?.password && (
@@ -143,14 +158,18 @@ export function AuthForm({ className, ...props }: React.ComponentProps<"div">) {
                   </Link>
                 </div>
               )}
+
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading
-                  ? "Please wait..."
-                  : {
-                      login: "Login",
-                      signup: "Sign up",
-                      forgot: "Send reset link",
-                    }[mode]}
+                {loading ? (
+                  <LoadingSpinner loading={loading} />
+                ) : (
+                  {
+                    login: "Login",
+                    signup: "Sign up",
+                    forgot: "Send reset link",
+                    reset: "Reset Password",
+                  }[mode]
+                )}
               </Button>
 
               {mode === "signup" && (
@@ -173,7 +192,7 @@ export function AuthForm({ className, ...props }: React.ComponentProps<"div">) {
                 </p>
               )}
 
-              {mode !== "forgot" && (
+              {mode !== "forgot" && mode !== "reset" && (
                 <>
                   <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-border">
                     <span className="relative z-10 bg-background md:bg-card px-2 text-muted-foreground">
@@ -203,7 +222,7 @@ export function AuthForm({ className, ...props }: React.ComponentProps<"div">) {
               )}
             </div>
 
-            {mode !== "forgot" && (
+            {mode !== "forgot" && mode !== "reset" && (
               <div className="text-center text-sm mt-6">
                 {mode === "login" ? (
                   <>

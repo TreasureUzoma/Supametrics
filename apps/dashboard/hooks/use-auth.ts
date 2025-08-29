@@ -1,13 +1,12 @@
-"use client";
-
 import { useState, useMemo } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { signInSchema, signUpSchema } from "@repo/ui/lib/zod";
-import { devUrl } from "@/constants";
-import type { ZodIssue } from "zod";
 import { toast } from "sonner";
+import { Response } from "@repo/ui/types";
+import axiosFetch from "@repo/ui/lib/axios";
+import type { ZodIssue } from "zod";
 
-export type AuthMode = "login" | "signup" | "forgot";
+export type AuthMode = "login" | "signup" | "forgot" | "reset";
 
 export type AuthValues = {
   name?: string;
@@ -17,10 +16,12 @@ export type AuthValues = {
 
 export function useAuth() {
   const pathname = usePathname();
+  const router = useRouter();
 
   const mode = useMemo<AuthMode>(() => {
     if (pathname === "/signup") return "signup";
     if (pathname === "/forgot-password") return "forgot";
+    if (pathname === "/reset-password") return "reset";
     return "login";
   }, [pathname]);
 
@@ -47,12 +48,9 @@ export function useAuth() {
   const values: AuthValues = { name, email, password };
 
   const handleErrors = (issues: ZodIssue[]) => {
-    console.log("Validation errors:", issues);
     const newErrors = { name: "", email: "", password: "", general: "" };
-
     issues.forEach((issue) => {
-      const field = issue.path[0]; // could be undefined
-
+      const field = issue.path[0];
       if (typeof field === "string" && field in newErrors) {
         newErrors[field as keyof typeof newErrors] = issue.message;
       } else {
@@ -60,11 +58,32 @@ export function useAuth() {
         toast.error(issue.message);
       }
     });
-
     setError(newErrors);
   };
 
-  // api calls
+  const validateField = (field: keyof AuthValues, value: string) => {
+    try {
+      let result;
+      if (mode === "signup" && field === "name") {
+        result = signUpSchema.shape.name.safeParse(value);
+      } else {
+        const schemaField =
+          signInSchema.shape[field as keyof typeof signInSchema.shape];
+        if (!schemaField) return;
+        result = schemaField.safeParse(value);
+      }
+
+      if (result.success) {
+        setError((prev) => ({ ...prev, [field]: "" }));
+      } else {
+        const message = result.error.issues[0]?.message || "Invalid input";
+        setError((prev) => ({ ...prev, [field]: message }));
+      }
+    } catch {
+      // ignore
+    }
+  };
+
   const handleSignIn = async () => {
     const isValid = signInSchema.safeParse(values);
     if (!isValid.success) {
@@ -74,23 +93,20 @@ export function useAuth() {
 
     try {
       setLoading(true);
-      const response = await fetch(`${devUrl}/auth/signin`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to sign in");
-      }
+      const { data: res } = await axiosFetch.post<Response>(
+        "/auth/signin",
+        values
+      );
+      if (!res.success) throw new Error(res?.message ?? res.error);
 
       setSuccess(true);
+      toast.success(res.message);
+
+      // Redirect to dashboard after login
+      router.push("/dashboard");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Error signing in";
-      setError((prev) => ({
-        ...prev,
-        general: message,
-      }));
+      setError((prev) => ({ ...prev, general: message }));
       toast.error(message);
     } finally {
       setLoading(false);
@@ -106,23 +122,24 @@ export function useAuth() {
 
     try {
       setLoading(true);
-      const response = await fetch(`${devUrl}/auth/signup`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
-      });
+      const { data: res } = await axiosFetch.post<Response>(
+        "/auth/signup",
+        values
+      );
 
-      if (!response.ok) {
-        throw new Error("Failed to sign up");
+      if (!res.data.success) {
+        throw new Error(res?.message ?? res.error);
       }
 
       setSuccess(true);
+      toast.success(res.message);
+
+      // Redirect to verify email page after signup
+      router.push("/verify-email");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Error signing up";
-      setError((prev) => ({
-        ...prev,
-        general: message,
-      }));
+      setError((prev) => ({ ...prev, general: message }));
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -136,24 +153,51 @@ export function useAuth() {
 
     try {
       setLoading(true);
-      const response = await fetch(`${devUrl}/auth/forgot-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to send reset email");
-      }
+      const { data: res } = await axiosFetch.post<Response>(
+        "/auth/forgot-password",
+        {
+          email,
+        }
+      );
+      if (!res.success) throw new Error(res?.message ?? res.error);
 
       setSuccess(true);
+      toast.success(res.message);
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Error sending reset email";
-      setError((prev) => ({
-        ...prev,
-        general: message,
-      }));
+      setError((prev) => ({ ...prev, general: message }));
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!password) {
+      setError((prev) => ({ ...prev, password: "Password is required" }));
+      return;
+    }
+    const token = new URLSearchParams(window.location.search).get("token");
+    if (!token) {
+      return toast.error("Invalid or missing reset token.");
+    }
+
+    try {
+      setLoading(true);
+      const { data: res } = await axiosFetch.post<Response>(
+        "/auth/verify-reset-password",
+        { token, password }
+      );
+      if (!res.success) throw new Error(res?.message ?? res.error);
+
+      setSuccess(true);
+      toast.success(res.message);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Error resetting password";
+      setError((prev) => ({ ...prev, general: message }));
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -175,8 +219,9 @@ export function useAuth() {
     signin: handleSignIn,
     signup: handleSignUp,
     forgotPassword: handleForgotPassword,
+    resetPassword: handleResetPassword,
+    validateField,
     googleLogin: async () => {
-      // TODO: implement OAuth flow
       console.log("google login not implemented yet");
     },
   };

@@ -4,6 +4,7 @@ import { revokedTokens, user } from "../db/auth-schema.js";
 import { and, eq } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import { getSignedCookie, setSignedCookie, deleteCookie } from "hono/cookie";
+import { success } from "zod";
 
 const JWT_SECRET = process.env.AUTH_SECRET!;
 const REFRESH_SECRET = process.env.REFRESH_SECRET!;
@@ -24,9 +25,17 @@ export const withAuth: MiddlewareHandler = async (c, next) => {
     // try refresh token
     const refresh = await getSignedCookie(c, REFRESH_SECRET, "refresh");
     if (!refresh) {
-      deleteCookie(c, "auth", cookieOpts);
-      deleteCookie(c, "refresh", cookieOpts);
-      return c.json({ error: "Unauthorized" }, 401);
+      await deleteCookie(c, "auth", cookieOpts);
+      await deleteCookie(c, "refresh", cookieOpts);
+      return c.json(
+        {
+          error: "Unauthorized",
+          data: null,
+          success,
+          message: "Login to continue",
+        },
+        401
+      );
     }
 
     try {
@@ -38,9 +47,17 @@ export const withAuth: MiddlewareHandler = async (c, next) => {
         .limit(1);
 
       if (tokenRecord.length === 0 || tokenRecord[0].revoked) {
-        deleteCookie(c, "auth", cookieOpts);
-        deleteCookie(c, "refresh", cookieOpts);
-        return c.json({ error: "Unauthorized" }, 401);
+        await deleteCookie(c, "auth", cookieOpts);
+        await deleteCookie(c, "refresh", cookieOpts);
+        return c.json(
+          {
+            error: "Unauthorized",
+            data: null,
+            success,
+            message: "Login to continue",
+          },
+          401
+        );
       }
 
       // Security enhancement: Verify the user agent
@@ -50,11 +67,15 @@ export const withAuth: MiddlewareHandler = async (c, next) => {
           .update(revokedTokens)
           .set({ revoked: true })
           .where(eq(revokedTokens.token, refresh));
-        deleteCookie(c, "auth", cookieOpts);
-        deleteCookie(c, "refresh", cookieOpts);
+        await deleteCookie(c, "auth", cookieOpts);
+        await deleteCookie(c, "refresh", cookieOpts);
         return c.json(
           {
             error:
+              "Unauthorized: Session user agent mismatch. Please sign in again.",
+            data: null,
+            success: false,
+            message:
               "Unauthorized: Session user agent mismatch. Please sign in again.",
           },
           401
@@ -70,14 +91,14 @@ export const withAuth: MiddlewareHandler = async (c, next) => {
         expiresIn: "15m",
       });
 
-      setSignedCookie(c, "auth", token, JWT_SECRET, {
+      await setSignedCookie(c, "auth", token, JWT_SECRET, {
         ...cookieOpts,
         maxAge: 15 * 60,
       });
     } catch (err: any) {
       console.error(err);
-      deleteCookie(c, "auth", cookieOpts);
-      deleteCookie(c, "refresh", cookieOpts);
+      await deleteCookie(c, "auth", cookieOpts);
+      await deleteCookie(c, "refresh", cookieOpts);
       return c.json({ error: "Unauthorized" }, 401);
     }
   }
@@ -92,17 +113,33 @@ export const withAuth: MiddlewareHandler = async (c, next) => {
 
     const existingUser = rows[0];
     if (!existingUser) {
-      deleteCookie(c, "auth", cookieOpts);
-      deleteCookie(c, "refresh", cookieOpts);
-      return c.json({ error: "Unauthorized" }, 401);
+      await deleteCookie(c, "auth", cookieOpts);
+      await deleteCookie(c, "refresh", cookieOpts);
+      return c.json(
+        {
+          error: "Unauthorized",
+          data: null,
+          success,
+          message: "Login to continue",
+        },
+        401
+      );
     }
 
     c.set("user", existingUser);
     return next();
   } catch (err: any) {
     console.error(err);
-    deleteCookie(c, "auth", cookieOpts);
-    deleteCookie(c, "refresh", cookieOpts);
-    return c.json({ error: "Unauthorized" }, 401);
+    await deleteCookie(c, "auth", cookieOpts);
+    await deleteCookie(c, "refresh", cookieOpts);
+    return c.json(
+      {
+        error: "Unauthorized",
+        data: null,
+        success,
+        message: "Login to continue",
+      },
+      401
+    );
   }
 };

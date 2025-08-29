@@ -6,8 +6,7 @@ export const signUpSchema = z.object({
   password: z
     .string()
     .min(8, "Password must be at least 8 characters")
-    .max(100)
-    .optional(),
+    .max(100),
 });
 
 export const signInSchema = z.object({
@@ -15,8 +14,7 @@ export const signInSchema = z.object({
   password: z
     .string()
     .min(8, "Password must be at least 8 characters")
-    .max(100)
-    .optional(),
+    .max(100),
 });
 
 export const forgotPasswordSchema = z.object({
@@ -24,7 +22,10 @@ export const forgotPasswordSchema = z.object({
 });
 
 export const verifyResetSchema = z.object({
-  email: z.email("Invalid email"),
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .max(100),
   token: z.string("Invalid token format"),
 });
 

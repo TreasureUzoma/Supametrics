@@ -120,11 +120,11 @@ authHandler.post("/signin", async (c) => {
       );
 
     // Check if email is verified
-    if (!foundUser.emailVerified)
+    /* if (!foundUser.emailVerified)
       return c.json(
         { success: false, message: "Email not verified", data: null },
         403
-      );
+      ); */
 
     const accessToken = jwt.sign({ uuid: foundUser.uuid }, JWT_SECRET, {
       expiresIn: "15m",
@@ -135,7 +135,15 @@ authHandler.post("/signin", async (c) => {
 
     const userAgent = c.req.header("User-Agent") || "unknown";
 
-    // Store the refresh token and user agent for later validation
+    await db
+      .delete(revokedTokens)
+      .where(
+        and(
+          eq(revokedTokens.uuid, foundUser.uuid),
+          eq(revokedTokens.userAgent, userAgent)
+        )
+      );
+
     await db.insert(revokedTokens).values({
       uuid: foundUser.uuid,
       token: refreshToken,
@@ -144,11 +152,11 @@ authHandler.post("/signin", async (c) => {
       userAgent: userAgent,
     });
 
-    setSignedCookie(c, "auth", accessToken, JWT_SECRET, {
+    await setSignedCookie(c, "auth", accessToken, JWT_SECRET, {
       ...cookieOpts,
       maxAge: 15 * 60,
     });
-    setSignedCookie(c, "refresh", refreshToken, REFRESH_SECRET, {
+    await setSignedCookie(c, "refresh", refreshToken, REFRESH_SECRET, {
       ...cookieOpts,
       maxAge: 7 * 24 * 60 * 60,
     });
@@ -217,8 +225,7 @@ authHandler.post("/forgot-password", async (c) => {
       expiresAt: new Date(Date.now() + 15 * 60 * 1000),
     });
 
-    const link =
-      process.env.TRUSTED_ORIGIN + `/reset-password?token=${rawToken}`;
+    const link = process.env.TRUSTED_ORIGIN; // + `/reset-password?token=${rawToken}`;
 
     // TODO: send email with `rawToken` link
     return c.json(
@@ -238,12 +245,12 @@ authHandler.post("/forgot-password", async (c) => {
   }
 });
 
-// Verify reset token endpoint
-authHandler.post("/verify-reset-token", async (c) => {
+// reset password endpoint
+authHandler.post("/verify-reset-password", async (c) => {
   try {
     const body = await c.req.json();
     const parsed = verifyResetSchema.safeParse(body);
-    if (!parsed.success)
+    if (!parsed.success) {
       return c.json(
         {
           success: false,
@@ -252,48 +259,52 @@ authHandler.post("/verify-reset-token", async (c) => {
         },
         400
       );
+    }
 
-    const { email, token } = parsed.data;
+    const { password, token } = parsed.data;
 
     const rows = await db
       .select()
       .from(verification)
-      .where(
-        and(
-          eq(verification.identifier, email),
-          eq(verification.type, "reset_password")
-        )
-      )
+      .where(eq(verification.type, "reset_password"))
       .orderBy(verification.expiresAt)
       .limit(1);
 
     const record = rows[0];
-    if (!record)
+    if (!record || record.expiresAt < new Date()) {
       return c.json(
         { success: false, message: "Invalid or expired token", data: null },
         400
       );
-    if (record.expiresAt < new Date())
-      return c.json(
-        { success: false, message: "Token expired", data: null },
-        400
-      );
+    }
 
     const valid = await verifyPassword(token, record.value);
-    if (!valid)
+    if (!valid) {
       return c.json(
         { success: false, message: "Invalid token", data: null },
         400
       );
+    }
+
+    const hashed = await hashPassword(password);
+
+    await db
+      .update(user)
+      .set({ password: hashed })
+      .where(eq(user.email, record.identifier));
+
+    await db
+      .delete(verification)
+      .where(eq(verification.identifier, record.identifier));
 
     return c.json(
-      { success: true, message: "Token valid", data: { email } },
+      { success: true, message: "Password reset successfully", data: null },
       200
     );
   } catch (err: any) {
     console.error(err);
     return c.json(
-      { success: false, message: "Failed to verify token", data: null },
+      { success: false, message: "Failed to reset password", data: null },
       500
     );
   }

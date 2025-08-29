@@ -41,8 +41,8 @@ sessionHandler.get("/session", async (c) => {
     if (!userFromDb) {
       const refresh = await getSignedCookie(c, REFRESH_SECRET, "refresh");
       if (!refresh) {
-        deleteCookie(c, "auth", cookieOpts);
-        deleteCookie(c, "refresh", cookieOpts);
+        await deleteCookie(c, "auth", cookieOpts);
+        await deleteCookie(c, "refresh", cookieOpts);
         return c.json(
           {
             success: false,
@@ -67,8 +67,8 @@ sessionHandler.get("/session", async (c) => {
         // check if refresh token is valid and not revoked
         if (tokenRecord.length === 0 || tokenRecord[0].revoked) {
           // Invalidate and delete cookies if refresh token is invalid or revoked
-          deleteCookie(c, "auth", cookieOpts);
-          deleteCookie(c, "refresh", cookieOpts);
+          await deleteCookie(c, "auth", cookieOpts);
+          await deleteCookie(c, "refresh", cookieOpts);
           return c.json(
             {
               success: false,
@@ -87,8 +87,8 @@ sessionHandler.get("/session", async (c) => {
             .update(revokedTokens)
             .set({ revoked: true })
             .where(eq(revokedTokens.token, refresh));
-          deleteCookie(c, "auth", cookieOpts);
-          deleteCookie(c, "refresh", cookieOpts);
+          await deleteCookie(c, "auth", cookieOpts);
+          await deleteCookie(c, "refresh", cookieOpts);
           return c.json(
             {
               success: false,
@@ -103,7 +103,7 @@ sessionHandler.get("/session", async (c) => {
         token = jwt.sign({ uuid: decoded.uuid }, JWT_SECRET, {
           expiresIn: "15m",
         });
-        setSignedCookie(c, "auth", token, JWT_SECRET, {
+        await setSignedCookie(c, "auth", token, JWT_SECRET, {
           ...cookieOpts,
           maxAge: 15 * 60,
         });
@@ -116,8 +116,8 @@ sessionHandler.get("/session", async (c) => {
         userFromDb = rows[0];
 
         if (!userFromDb) {
-          deleteCookie(c, "auth", cookieOpts);
-          deleteCookie(c, "refresh", cookieOpts);
+          await deleteCookie(c, "auth", cookieOpts);
+          await deleteCookie(c, "refresh", cookieOpts);
           return c.json(
             {
               success: false,
@@ -129,8 +129,8 @@ sessionHandler.get("/session", async (c) => {
         }
       } catch (err: any) {
         console.error(err);
-        deleteCookie(c, "auth", cookieOpts);
-        deleteCookie(c, "refresh", cookieOpts);
+        await deleteCookie(c, "auth", cookieOpts);
+        await deleteCookie(c, "refresh", cookieOpts);
         return c.json(
           {
             success: false,
@@ -143,8 +143,8 @@ sessionHandler.get("/session", async (c) => {
     }
 
     if (!userFromDb) {
-      deleteCookie(c, "auth", cookieOpts);
-      deleteCookie(c, "refresh", cookieOpts);
+      await deleteCookie(c, "auth", cookieOpts);
+      await deleteCookie(c, "refresh", cookieOpts);
       return c.json(
         {
           success: false,
@@ -250,8 +250,8 @@ sessionHandler.get("/signout", async (c) => {
     const refresh = await getSignedCookie(c, REFRESH_SECRET, "refresh");
 
     // Immediately delete the cookies from the client
-    deleteCookie(c, "auth", cookieOpts);
-    deleteCookie(c, "refresh", cookieOpts);
+    await deleteCookie(c, "auth", cookieOpts);
+    await deleteCookie(c, "refresh", cookieOpts);
 
     if (refresh) {
       // Find the token record and revoke it in the database

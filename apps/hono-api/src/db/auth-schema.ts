@@ -65,7 +65,7 @@ export const verification = pgTable("verification", {
 
 export const revokedTokens = pgTable("revoked_tokens", {
   id: serial("id").primaryKey(),
-  uuid: uuid("uuid").defaultRandom().notNull().unique(),
+  uuid: uuid("uuid").defaultRandom().notNull(),
   token: text("token").notNull(),
   expiresAt: timestamp("expires_at").notNull(),
   revoked: boolean("revoked").notNull().default(false),
