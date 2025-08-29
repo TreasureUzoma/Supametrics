@@ -1,33 +1,20 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
-
 import { cors } from "hono/cors";
 
 import { withAuth } from "./middleware/session.js";
 import { rateLimiter } from "./middleware/rate-limiter.js";
 
-import authRoutes from "./handlers/auth.js";
 import overviewRoute from "./handlers/overview.js";
-
 import projectRoutes from "./handlers/projects.js";
 import analyticsRoutes from "./handlers/analytics.js";
 import reportRoutes from "./handlers/reports.js";
 import teamRoutes from "./handlers/teams.js";
 
-const app = new Hono();
+import type { AuthType } from "./lib/auth.js";
+import authHandler from "@/handlers/auth.js";
 
-app.onError((err, c) => {
-  console.error("Unhandled error:", err);
-
-  return c.json(
-    {
-      error: "Internal Server Error",
-      message: err.message,
-      stack: process.env.NODE_ENV === "development" ? err.stack : undefined,
-    },
-    500
-  );
-});
+const app = new Hono<{ Variables: AuthType }>({});
 
 app.notFound((c) => {
   return c.json({ error: "Not Found - Visit supametrics.com" }, 404);
@@ -39,13 +26,7 @@ app.get("/", (c) => {
 
 const v1 = new Hono().basePath("/api/v1");
 
-// health endpoint — 5 requests per minute
-v1.get("/health", rateLimiter(60 * 1000, 5), (c) => {
-  return c.json({
-    message: "Server is healthy!",
-  });
-});
-
+// CORS for all v1 routes
 v1.use(
   "*",
   cors({
@@ -61,27 +42,33 @@ v1.use(
   })
 );
 
-// auth routes (no rate limiting for now)
-v1.route("/auth", authRoutes);
+// Health check
+v1.get("/health", rateLimiter(60 * 1000, 5), (c) => {
+  return c.json({ message: "Server is healthy!" });
+});
 
-// everything else requires authentication
+// Auth routes (40 req per hour, no auth required)
+v1.route("/auth", authHandler.use(rateLimiter(60 * 60 * 1000, 40)));
+
+// Everything else requires authentication
 v1.use("*", withAuth);
 
-// projects routes — 100 requests per hour
+// Projects — 100 requests/hour
 v1.route("/projects", projectRoutes.use(rateLimiter(60 * 60 * 1000, 100)));
 
-// overview route
+// Overview
 v1.route("/overview", overviewRoute.use(rateLimiter(60 * 60 * 1000, 100)));
 
-// analytics routes — 50 requests per hour
+// Analytics — 50 requests/hour
 v1.route("/analytics", analyticsRoutes.use(rateLimiter(60 * 60 * 1000, 50)));
 
-// reports routes — 50 requests per hour
+// Reports — 50 requests/hour
 v1.route("/reports", reportRoutes.use(rateLimiter(60 * 60 * 1000, 50)));
 
-// teams routes — 50 requests per hour
+// Teams — 50 requests/hour
 v1.route("/teams", teamRoutes.use(rateLimiter(60 * 60 * 1000, 50)));
 
+// Attach v1 to app
 app.route("/", v1);
 
 serve(

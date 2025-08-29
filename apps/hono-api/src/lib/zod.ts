@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const signUpSchema = z.object({
-  fullName: z.string().min(4, "Full name is required").max(255),
+  name: z.string().min(4, "Full name is required").max(255),
   email: z.email("Invalid email address"),
   password: z
     .string()
@@ -17,6 +17,19 @@ export const signInSchema = z.object({
     .min(8, "Password must be at least 8 characters")
     .max(100)
     .optional(),
+});
+
+export const forgotPasswordSchema = z.object({
+  email: z.email("Invalid email"),
+});
+
+export const verifyResetSchema = z.object({
+  email: z.email("Invalid email"),
+  token: z.string("Invalid token format"),
+});
+
+export const revokeSessionSchema = z.object({
+  token: z.string().min(1, "Token required"),
 });
 
 export const createProjectSchema = z.object({

@@ -10,7 +10,7 @@ CREATE TABLE "analytics_events" (
 	"timestamp" timestamp DEFAULT now(),
 	"pathname" text NOT NULL,
 	"referrer" text,
-	"origin" text,
+	"hostname" text,
 	"utm_source" varchar(64),
 	"utm_medium" varchar(64),
 	"utm_campaign" varchar(64),
@@ -66,6 +66,20 @@ CREATE TABLE "projects" (
 	CONSTRAINT "projects_slug_user_id_unique" UNIQUE("slug","user_id")
 );
 --> statement-breakpoint
+CREATE TABLE "reports" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"uuid" uuid DEFAULT gen_random_uuid() NOT NULL,
+	"project_id" uuid NOT NULL,
+	"name" varchar(256) NOT NULL,
+	"description" text,
+	"type" varchar(64) NOT NULL,
+	"data" jsonb NOT NULL,
+	"created_by" uuid NOT NULL,
+	"created_at" timestamp DEFAULT now(),
+	"updated_at" timestamp DEFAULT now(),
+	CONSTRAINT "reports_uuid_unique" UNIQUE("uuid")
+);
+--> statement-breakpoint
 CREATE TABLE "team_invites" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"uuid" uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -97,43 +111,28 @@ CREATE TABLE "teams" (
 	CONSTRAINT "teams_slug_unique" UNIQUE("slug")
 );
 --> statement-breakpoint
-CREATE TABLE "account" (
-	"id" text PRIMARY KEY NOT NULL,
-	"account_id" text NOT NULL,
-	"provider_id" text NOT NULL,
-	"user_id" text NOT NULL,
-	"access_token" text,
-	"refresh_token" text,
-	"id_token" text,
-	"access_token_expires_at" timestamp,
-	"refresh_token_expires_at" timestamp,
-	"scope" text,
-	"password" text,
-	"created_at" timestamp NOT NULL,
-	"updated_at" timestamp NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE "session" (
-	"id" text PRIMARY KEY NOT NULL,
-	"expires_at" timestamp NOT NULL,
+CREATE TABLE "revoked_tokens" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"uuid" uuid DEFAULT gen_random_uuid() NOT NULL,
 	"token" text NOT NULL,
-	"created_at" timestamp NOT NULL,
-	"updated_at" timestamp NOT NULL,
-	"ip_address" text,
-	"user_agent" text,
-	"user_id" text NOT NULL,
-	CONSTRAINT "session_token_unique" UNIQUE("token")
+	"expires_at" timestamp NOT NULL,
+	"revoked" boolean DEFAULT false NOT NULL,
+	"user_agent" text NOT NULL,
+	CONSTRAINT "revoked_tokens_uuid_unique" UNIQUE("uuid")
 );
 --> statement-breakpoint
 CREATE TABLE "user" (
-	"id" text PRIMARY KEY NOT NULL,
+	"id" serial PRIMARY KEY NOT NULL,
 	"uuid" uuid DEFAULT gen_random_uuid() NOT NULL,
 	"name" text NOT NULL,
 	"email" text NOT NULL,
+	"password" text,
 	"email_verified" boolean NOT NULL,
 	"image" text,
 	"created_at" timestamp NOT NULL,
 	"updated_at" timestamp NOT NULL,
+	"auth_method" text DEFAULT 'email',
+	"status" text DEFAULT 'active',
 	"role" text DEFAULT 'user',
 	"subscription_type" text DEFAULT 'free',
 	CONSTRAINT "user_uuid_unique" UNIQUE("uuid"),
@@ -141,9 +140,10 @@ CREATE TABLE "user" (
 );
 --> statement-breakpoint
 CREATE TABLE "verification" (
-	"id" text PRIMARY KEY NOT NULL,
+	"id" serial PRIMARY KEY NOT NULL,
 	"identifier" text NOT NULL,
 	"value" text NOT NULL,
+	"type" text NOT NULL,
 	"expires_at" timestamp NOT NULL,
 	"created_at" timestamp,
 	"updated_at" timestamp
@@ -155,9 +155,9 @@ ALTER TABLE "project_members" ADD CONSTRAINT "project_members_project_id_project
 ALTER TABLE "project_members" ADD CONSTRAINT "project_members_user_id_user_uuid_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("uuid") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "projects" ADD CONSTRAINT "projects_user_id_user_uuid_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("uuid") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "projects" ADD CONSTRAINT "projects_team_id_teams_uuid_fk" FOREIGN KEY ("team_id") REFERENCES "public"."teams"("uuid") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "reports" ADD CONSTRAINT "reports_project_id_projects_uuid_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("uuid") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "reports" ADD CONSTRAINT "reports_created_by_user_uuid_fk" FOREIGN KEY ("created_by") REFERENCES "public"."user"("uuid") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "team_invites" ADD CONSTRAINT "team_invites_team_id_teams_uuid_fk" FOREIGN KEY ("team_id") REFERENCES "public"."teams"("uuid") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "team_members" ADD CONSTRAINT "team_members_team_id_teams_uuid_fk" FOREIGN KEY ("team_id") REFERENCES "public"."teams"("uuid") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "team_members" ADD CONSTRAINT "team_members_user_id_user_uuid_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("uuid") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "teams" ADD CONSTRAINT "teams_owner_id_user_uuid_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."user"("uuid") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "account" ADD CONSTRAINT "account_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "teams" ADD CONSTRAINT "teams_owner_id_user_uuid_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."user"("uuid") ON DELETE cascade ON UPDATE no action;

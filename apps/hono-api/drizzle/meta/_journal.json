@@ -5,15 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1754733037144,
-      "tag": "0000_majestic_tigra",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1755087245430,
-      "tag": "0001_workable_sunfire",
+      "when": 1756427873184,
+      "tag": "0000_steep_juggernaut",
       "breakpoints": true
     }
   ]
