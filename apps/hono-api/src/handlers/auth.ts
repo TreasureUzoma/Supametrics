@@ -1,29 +1,29 @@
 import { Hono } from "hono";
 import { db } from "../db/index.js";
-import { revokedTokens, user, verification } from "../db/auth-schema.js";
+import { user, verification } from "../db/auth-schema.js";
 import { and, eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import jwt from "jsonwebtoken";
 import { hashPassword, verifyPassword } from "@/lib/bcrypt.js";
-import type { AuthType } from "../lib/auth.js";
-import { deleteCookie, getSignedCookie, setSignedCookie } from "hono/cookie";
+import { setSignedCookie } from "hono/cookie";
+import { revokedTokens } from "../db/auth-schema.js";
 import {
   forgotPasswordSchema,
-  revokeSessionSchema,
   signInSchema,
   signUpSchema,
   verifyResetSchema,
 } from "@/lib/zod.js";
 import { cookieOpts } from "@/helpers/cookie-opts.js";
 
-const authHandler = new Hono<{ Variables: AuthType }>();
+const authHandler = new Hono();
 
 const JWT_SECRET = process.env.AUTH_SECRET!;
 const REFRESH_SECRET = process.env.REFRESH_SECRET!;
 
 if (!JWT_SECRET) throw new Error("AUTH_SECRET not set");
+if (!REFRESH_SECRET) throw new Error("REFRESH_SECRET not set");
 
-// signup
+// Signup endpoint
 authHandler.post("/signup", async (c) => {
   try {
     const body = await c.req.json();
@@ -48,10 +48,11 @@ authHandler.post("/signup", async (c) => {
       .limit(1);
 
     if (existing.length > 0)
+      // Generic message to prevent email enumeration
       return c.json(
         {
           success: false,
-          message: "Email already registered",
+          message: "An account with this email already exists.",
           data: null,
         },
         400
@@ -77,7 +78,7 @@ authHandler.post("/signup", async (c) => {
   }
 });
 
-// signin
+// Signin endpoint
 authHandler.post("/signin", async (c) => {
   try {
     const body = await c.req.json();
@@ -102,20 +103,18 @@ authHandler.post("/signin", async (c) => {
       .limit(1);
 
     const foundUser = rows[0];
-    // Check if user exists and has a password
     if (!foundUser || !foundUser.password) {
+      // Generic message for security
       return c.json(
-        // Use a generic message for security reasons
         { success: false, message: "Invalid email or password", data: null },
         401
       );
     }
 
     const valid = await verifyPassword(password!, foundUser.password);
-    // Check if password is valid
     if (!valid)
+      // Generic message for security
       return c.json(
-        // Use a generic message for security reasons
         { success: false, message: "Invalid email or password", data: null },
         401
       );
@@ -127,11 +126,22 @@ authHandler.post("/signin", async (c) => {
         403
       );
 
-    const accessToken = jwt.sign({ userId: foundUser.uuid }, JWT_SECRET, {
+    const accessToken = jwt.sign({ uuid: foundUser.uuid }, JWT_SECRET, {
       expiresIn: "15m",
     });
-    const refreshToken = jwt.sign({ userId: foundUser.uuid }, REFRESH_SECRET, {
+    const refreshToken = jwt.sign({ uuid: foundUser.uuid }, REFRESH_SECRET, {
       expiresIn: "7d",
+    });
+
+    const userAgent = c.req.header("User-Agent") || "unknown";
+
+    // Store the refresh token and user agent for later validation
+    await db.insert(revokedTokens).values({
+      uuid: foundUser.uuid,
+      token: refreshToken,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      revoked: false,
+      userAgent: userAgent,
     });
 
     setSignedCookie(c, "auth", accessToken, JWT_SECRET, {
@@ -143,20 +153,12 @@ authHandler.post("/signin", async (c) => {
       maxAge: 7 * 24 * 60 * 60,
     });
 
-    await db.insert(revokedTokens).values({
-      token: refreshToken,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      revoked: false,
-      userAgent: c.req.header("User-Agent") || "unknown",
-    });
-
     return c.json(
       { success: true, message: "Signed in successfully", data: { email } },
       200
     );
   } catch (err: any) {
     console.error(err);
-    // Return a more specific error for unexpected issues
     return c.json(
       {
         success: false,
@@ -168,195 +170,7 @@ authHandler.post("/signin", async (c) => {
   }
 });
 
-// session
-authHandler.get("/session", async (c) => {
-  try {
-    let token = await getSignedCookie(c, JWT_SECRET, "auth");
-
-    if (!token) {
-      const refresh = await getSignedCookie(c, REFRESH_SECRET, "refresh");
-      if (!refresh)
-        return c.json(
-          {
-            success: false,
-            message: "Unauthorized: No session found",
-            data: null,
-          },
-          401
-        );
-
-      try {
-        const decoded = jwt.verify(refresh, REFRESH_SECRET) as {
-          userId: string;
-        };
-        token = jwt.sign({ userId: decoded.userId }, JWT_SECRET, {
-          expiresIn: "15m",
-        });
-
-        const tokenRecord = await db
-          .select()
-          .from(revokedTokens)
-          .where(eq(revokedTokens.token, refresh))
-          .limit(1);
-
-        if (tokenRecord.length === 0 || tokenRecord[0].revoked) {
-          return c.json(
-            {
-              success: false,
-              message: "Unauthorized: Invalid or revoked refresh token",
-              data: null,
-            },
-            401
-          );
-        }
-
-        setSignedCookie(c, "auth", token, JWT_SECRET, {
-          ...cookieOpts,
-          maxAge: 15 * 60,
-        });
-      } catch {
-        return c.json(
-          {
-            success: false,
-            message: "Unauthorized: Invalid refresh token",
-            data: null,
-          },
-          401
-        );
-      }
-    }
-
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
-    const rows = await db
-      .select()
-      .from(user)
-      .where(eq(user.uuid, decoded.userId))
-      .limit(1);
-    const existing = rows[0];
-
-    if (!existing)
-      return c.json(
-        {
-          success: false,
-          message: "Invalid session or user not found",
-          data: null,
-        },
-        401
-      );
-
-    return c.json(
-      { success: true, message: "Session active", data: { user: existing } },
-      200
-    );
-  } catch (err: any) {
-    console.error(err);
-    return c.json({ success: false, message: "Unauthorized", data: null }, 401);
-  }
-});
-
-// active sessions
-authHandler.get("/sessions", async (c) => {
-  try {
-    const token = await getSignedCookie(c, JWT_SECRET, "auth");
-    if (!token)
-      return c.json(
-        { success: false, message: "Unauthorized", data: null },
-        401
-      );
-
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
-
-    const sessions = await db
-      .select()
-      .from(revokedTokens)
-      .where(
-        and(
-          eq(revokedTokens.revoked, false),
-          eq(revokedTokens.uuid, decoded.userId)
-        )
-      );
-
-    return c.json(
-      {
-        success: true,
-        message: "Active sessions fetched",
-        data: sessions.map((s) => ({
-          token: s.token,
-          userAgent: s.userAgent,
-          expiresAt: s.expiresAt,
-          revoked: s.revoked,
-        })),
-      },
-      200
-    );
-  } catch (err: any) {
-    console.error(err);
-    return c.json(
-      { success: false, message: "Failed to fetch sessions", data: null },
-      500
-    );
-  }
-});
-
-// revoke session
-authHandler.post("/sessions/revoke", async (c) => {
-  try {
-    const body = await c.req.json();
-    const parsed = revokeSessionSchema.safeParse(body);
-    if (!parsed.success)
-      return c.json(
-        {
-          success: false,
-          message: parsed.error.issues.map((issue) => issue.message).join(", "),
-          data: null,
-        },
-        400
-      );
-
-    const { token } = parsed.data;
-    await db
-      .update(revokedTokens)
-      .set({ revoked: true })
-      .where(eq(revokedTokens.token, token));
-
-    return c.json(
-      { success: true, message: "Session revoked successfully", data: null },
-      200
-    );
-  } catch (err: any) {
-    console.error(err);
-    return c.json(
-      { success: false, message: "Failed to revoke session", data: null },
-      500
-    );
-  }
-});
-
-// signout
-authHandler.get("/signout", async (c) => {
-  try {
-    deleteCookie(c, "auth", cookieOpts);
-    deleteCookie(c, "refresh", cookieOpts);
-
-    const refresh = await getSignedCookie(c, REFRESH_SECRET, "refresh");
-    if (refresh) {
-      await db
-        .update(revokedTokens)
-        .set({ revoked: true })
-        .where(eq(revokedTokens.token, refresh));
-    }
-
-    return c.json({ success: true, message: "Signed out", data: null }, 200);
-  } catch (err: any) {
-    console.error(err);
-    return c.json(
-      { success: false, message: "Failed to sign out", data: null },
-      500
-    );
-  }
-});
-
-// forgot password
+// Forgot password endpoint
 authHandler.post("/forgot-password", async (c) => {
   try {
     const body = await c.req.json();
@@ -424,7 +238,7 @@ authHandler.post("/forgot-password", async (c) => {
   }
 });
 
-// verify reset token
+// Verify reset token endpoint
 authHandler.post("/verify-reset-token", async (c) => {
   try {
     const body = await c.req.json();
@@ -484,8 +298,5 @@ authHandler.post("/verify-reset-token", async (c) => {
     );
   }
 });
-
-// TODO: implement password reset
-// TODO: implement oauth
 
 export default authHandler;

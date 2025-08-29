@@ -13,6 +13,7 @@ import teamRoutes from "./handlers/teams.js";
 
 import type { AuthType } from "./lib/auth.js";
 import authHandler from "@/handlers/auth.js";
+import sessionHandler from "./handlers/session.js";
 
 const app = new Hono<{ Variables: AuthType }>({});
 
@@ -47,8 +48,9 @@ v1.get("/health", rateLimiter(60 * 1000, 5), (c) => {
   return c.json({ message: "Server is healthy!" });
 });
 
-// Auth routes (40 req per hour, no auth required)
-v1.route("/auth", authHandler.use(rateLimiter(60 * 60 * 1000, 40)));
+// Auth routes (20 req per hour for login/signup etc 40 req per min for session, no auth required)
+v1.route("/auth", authHandler.use(rateLimiter(60 * 60 * 1000, 20)));
+v1.route("/session", sessionHandler.use(rateLimiter(60 * 60 * 1000, 40)));
 
 // Everything else requires authentication
 v1.use("*", withAuth);

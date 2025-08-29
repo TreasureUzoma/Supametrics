@@ -1,9 +1,9 @@
 import type { MiddlewareHandler } from "hono";
 import { db } from "../db/index.js";
 import { revokedTokens, user } from "../db/auth-schema.js";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import jwt from "jsonwebtoken";
-import { getSignedCookie, setSignedCookie } from "hono/cookie";
+import { getSignedCookie, setSignedCookie, deleteCookie } from "hono/cookie";
 
 const JWT_SECRET = process.env.AUTH_SECRET!;
 const REFRESH_SECRET = process.env.REFRESH_SECRET!;
@@ -18,27 +18,54 @@ const cookieOpts = {
 
 export const withAuth: MiddlewareHandler = async (c, next) => {
   let token = await getSignedCookie(c, JWT_SECRET, "auth");
+  const userAgent = c.req.header("User-Agent") || "unknown";
 
   if (!token) {
     // try refresh token
     const refresh = await getSignedCookie(c, REFRESH_SECRET, "refresh");
-    if (!refresh) return c.json({ error: "Unauthorized" }, 401);
+    if (!refresh) {
+      deleteCookie(c, "auth", cookieOpts);
+      deleteCookie(c, "refresh", cookieOpts);
+      return c.json({ error: "Unauthorized" }, 401);
+    }
 
     try {
-      // check blacklist
-      const record = await db
+      // Check if the refresh token is valid and not revoked in the database
+      const tokenRecord = await db
         .select()
         .from(revokedTokens)
         .where(eq(revokedTokens.token, refresh))
         .limit(1);
 
-      if (!record[0] || record[0].revoked) {
+      if (tokenRecord.length === 0 || tokenRecord[0].revoked) {
+        deleteCookie(c, "auth", cookieOpts);
+        deleteCookie(c, "refresh", cookieOpts);
         return c.json({ error: "Unauthorized" }, 401);
+      }
+
+      // Security enhancement: Verify the user agent
+      if (userAgent !== tokenRecord[0].userAgent) {
+        // Revoke the token to prevent future use on a different device
+        await db
+          .update(revokedTokens)
+          .set({ revoked: true })
+          .where(eq(revokedTokens.token, refresh));
+        deleteCookie(c, "auth", cookieOpts);
+        deleteCookie(c, "refresh", cookieOpts);
+        return c.json(
+          {
+            error:
+              "Unauthorized: Session user agent mismatch. Please sign in again.",
+          },
+          401
+        );
       }
 
       const decodedRefresh = jwt.verify(refresh, REFRESH_SECRET) as {
         userId: string;
       };
+
+      // If the refresh token is valid, issue a new access token
       token = jwt.sign({ userId: decodedRefresh.userId }, JWT_SECRET, {
         expiresIn: "15m",
       });
@@ -47,7 +74,10 @@ export const withAuth: MiddlewareHandler = async (c, next) => {
         ...cookieOpts,
         maxAge: 15 * 60,
       });
-    } catch {
+    } catch (err: any) {
+      console.error(err);
+      deleteCookie(c, "auth", cookieOpts);
+      deleteCookie(c, "refresh", cookieOpts);
       return c.json({ error: "Unauthorized" }, 401);
     }
   }
@@ -61,11 +91,18 @@ export const withAuth: MiddlewareHandler = async (c, next) => {
       .limit(1);
 
     const existingUser = rows[0];
-    if (!existingUser) return c.json({ error: "Unauthorized" }, 401);
+    if (!existingUser) {
+      deleteCookie(c, "auth", cookieOpts);
+      deleteCookie(c, "refresh", cookieOpts);
+      return c.json({ error: "Unauthorized" }, 401);
+    }
 
     c.set("user", existingUser);
     return next();
-  } catch {
+  } catch (err: any) {
+    console.error(err);
+    deleteCookie(c, "auth", cookieOpts);
+    deleteCookie(c, "refresh", cookieOpts);
     return c.json({ error: "Unauthorized" }, 401);
   }
 };
