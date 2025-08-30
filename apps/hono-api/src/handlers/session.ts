@@ -16,6 +16,8 @@ const REFRESH_SECRET = process.env.REFRESH_SECRET!;
 if (!JWT_SECRET) throw new Error("AUTH_SECRET not set");
 if (!REFRESH_SECRET) throw new Error("REFRESH_SECRET not set");
 
+//
+
 // Session endpoint
 sessionHandler.get("/session", async (c) => {
   try {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "./button";
 import {
   DropdownMenu,
@@ -12,64 +12,34 @@ import {
 import { Filter } from "lucide-react";
 
 type FilterDropdownProps = {
-  id: string;
   multiple?: boolean;
   options: string[];
-  onChange?: (selected: string[]) => void;
+  defaultValue?: string[];
+  onChange: (selected: string[]) => void;
 };
 
 export default function FilterDropdown({
-  id,
   multiple = true,
   options,
+  defaultValue = [],
   onChange,
 }: FilterDropdownProps) {
-  const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
+  const [value, setValue] = useState<string[]>(defaultValue);
 
-  // Load saved filters from localStorage or default
   useEffect(() => {
-    const saved = localStorage.getItem(`filter-dropdown-${id}`);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          setSelectedFilters(
-            parsed.filter((v): v is string => typeof v === "string")
-          );
-          return;
-        }
-      } catch {
-        // ignore invalid JSON
-      }
-    }
-
-    // Default to first option if nothing saved
-    if (options.length > 0) {
-      setSelectedFilters([options[0]!]);
-    }
-  }, [id, options]);
-
-  // Save to localStorage and notify parent
-  useEffect(() => {
-    if (selectedFilters.length > 0) {
-      localStorage.setItem(
-        `filter-dropdown-${id}`,
-        JSON.stringify(selectedFilters)
-      );
-      onChange?.(selectedFilters);
-    }
-  }, [id, selectedFilters, onChange]);
+    onChange(value);
+  }, [value, onChange]);
 
   const handleSelect = (option: string) => {
-    setSelectedFilters((prev) => {
-      if (multiple) {
-        return prev.includes(option)
+    if (multiple) {
+      setValue((prev) =>
+        prev.includes(option)
           ? prev.filter((f) => f !== option)
-          : [...prev, option];
-      } else {
-        return [option];
-      }
-    });
+          : [...prev, option]
+      );
+    } else {
+      setValue([option]);
+    }
   };
 
   return (
@@ -80,9 +50,7 @@ export default function FilterDropdown({
             <span className="w-4 h-4">
               <Filter className="w-4 h-4" />
             </span>
-            <span>
-              {selectedFilters.length > 0 ? selectedFilters[0] : "Filter by"}
-            </span>
+            <span>{value.length > 0 ? value.join(", ") : "Filter by"}</span>
           </Button>
         </DropdownMenuTrigger>
 
@@ -91,7 +59,7 @@ export default function FilterDropdown({
             multiple ? (
               <DropdownMenuCheckboxItem
                 key={option}
-                checked={selectedFilters.includes(option)}
+                checked={value.includes(option)}
                 onCheckedChange={() => handleSelect(option)}
               >
                 {option}
@@ -101,7 +69,7 @@ export default function FilterDropdown({
                 key={option}
                 onClick={() => handleSelect(option)}
                 className={
-                  selectedFilters.includes(option) ? "font-semibold" : ""
+                  value.includes(option) ? "font-semibold text-primary" : ""
                 }
               >
                 {option}

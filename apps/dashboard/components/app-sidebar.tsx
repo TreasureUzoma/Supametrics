@@ -1,5 +1,6 @@
 "use client";
 
+import { useSession } from "@/store/use-session";
 import * as React from "react";
 import {
   AudioWaveform,
@@ -24,79 +25,93 @@ import {
 } from "@/components/ui/sidebar";
 import Logo from "@repo/ui/components/ui/logo";
 
-// Full sidebar data
-const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "https://avatars.githubusercontent.com/u/34312347?v=4",
-  },
-  teams: [
-    {
-      name: "My Workspace",
-      logo: AudioWaveform,
-      plan: "Pro",
-    },
-    {
-      name: "Supametrics",
-      logo: Command,
-      plan: "Enterprise",
-    },
-    {
-      name: "Sparka",
-      logo: Command,
-      plan: "Pro",
-    },
-  ],
-  navLinks: [
-    {
-      title: "Dashboard",
-      url: "/dashboard",
-      icon: LayoutDashboard,
-    },
-    {
-      title: "Activity",
-      url: "/activity",
-      icon: Activity,
-    },
-    {
-      title: "AI",
-      url: "/ai",
-      icon: Sparkle,
-    },
-    {
-      title: "Support",
-      url: "/contact",
-      icon: LifeBuoy,
-    },
-  ],
-  navMain: [
-    {
-      title: "Settings",
-      url: "/settings",
-      icon: Settings2,
-      items: [
-        { title: "General", url: "/settinggs/general" },
-        { title: "Team", url: "/setttings/teams" },
-        { title: "Billing", url: "/settings/billing" },
-        { title: "Limits", url: "/settings/limits" },
-      ],
-    },
-    {
-      title: "Documentation",
-      url: "/docs",
-      icon: BookOpen,
-      items: [
-        { title: "Introduction", url: "/docs/introduction" },
-        { title: "Installations", url: "/docs/introduction/installation" },
-        { title: "Setup", url: "/docs/introduction/setup" },
-        { title: "Viewing Analytics", url: "/docs/introduction/viewanalytics" },
-      ],
-    },
-  ],
-};
-
 export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
+  // ✅ Correctly call the hook inside the component function
+  const { user, isLoading, isError, refetch } = useSession();
+
+  // Define the data object inside the component so it has access to the user variable
+  const data = {
+    user: {
+      name: user?.name,
+      email: user?.email,
+      avatar: user?.avatar,
+    },
+    teams: [
+      {
+        name: "My Workspace",
+        logo: AudioWaveform,
+        plan: "Pro",
+      },
+      {
+        name: "Supametrics",
+        logo: Command,
+        plan: "Enterprise",
+      },
+      {
+        name: "Sparka",
+        logo: Command,
+        plan: "Pro",
+      },
+    ],
+    navLinks: [
+      {
+        title: "Dashboard",
+        url: "/dashboard",
+        icon: LayoutDashboard,
+      },
+      {
+        title: "Activity",
+        url: "/activity",
+        icon: Activity,
+      },
+      {
+        title: "AI",
+        url: "/ai",
+        icon: Sparkle,
+      },
+      {
+        title: "Support",
+        url: "/contact",
+        icon: LifeBuoy,
+      },
+    ],
+    navMain: [
+      {
+        title: "Settings",
+        url: "/settings",
+        icon: Settings2,
+        items: [
+          { title: "General", url: "/settinggs/general" },
+          { title: "Team", url: "/setttings/teams" },
+          { title: "Billing", url: "/settings/billing" },
+          { title: "Limits", url: "/settings/limits" },
+        ],
+      },
+      {
+        title: "Documentation",
+        url: "/docs",
+        icon: BookOpen,
+        items: [
+          { title: "Introduction", url: "/docs/introduction" },
+          { title: "Installations", url: "/docs/introduction/installation" },
+          { title: "Setup", url: "/docs/introduction/setup" },
+          {
+            title: "Viewing Analytics",
+            url: "/docs/introduction/viewanalytics",
+          },
+        ],
+      },
+    ],
+  };
+
+  if (isLoading) {
+    return <div>Loading sidebar...</div>;
+  }
+
+  if (isError) {
+    return <div>Error loading sidebar.</div>;
+  }
+
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>

@@ -29,7 +29,6 @@ export const withAuth: MiddlewareHandler = async (c, next) => {
       await deleteCookie(c, "refresh", cookieOpts);
       return c.json(
         {
-          error: "Unauthorized",
           data: null,
           success,
           message: "Login to continue",

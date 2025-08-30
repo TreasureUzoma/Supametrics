@@ -6,6 +6,7 @@ export const projects = [
     trendingUp: true,
     trendingPercent: 12.4,
     active: true,
+    id: 1,
   },
   {
     name: "Portfolio",
@@ -14,6 +15,7 @@ export const projects = [
     trendingUp: false,
     trendingPercent: 3.2,
     active: true,
+    id: 2,
   },
   {
     name: "TalkGPT",
@@ -22,6 +24,7 @@ export const projects = [
     trendingUp: true,
     trendingPercent: 5.1,
     active: true,
+    id: 3,
   },
   {
     name: "FlyCommerce",
@@ -30,6 +33,7 @@ export const projects = [
     trendingUp: true,
     trendingPercent: 7.8,
     active: true,
+    id: 4,
   },
   {
     name: "Blocked.com",
@@ -38,6 +42,7 @@ export const projects = [
     trendingUp: false,
     trendingPercent: 4.5,
     active: true,
+    id: 5,
   },
   {
     name: "BlackWears",
@@ -46,6 +51,7 @@ export const projects = [
     trendingUp: true,
     trendingPercent: 9.3,
     active: true,
+    id: 6,
   },
   {
     name: "Ship",
@@ -54,6 +60,7 @@ export const projects = [
     trendingUp: false,
     trendingPercent: 2.1,
     active: true,
+    id: 7,
   },
   {
     name: "Talkgram",
@@ -62,6 +69,7 @@ export const projects = [
     trendingUp: true,
     trendingPercent: 6.7,
     active: true,
+    id: 8,
   },
   {
     name: "Support Ticket System",
@@ -70,6 +78,7 @@ export const projects = [
     trendingUp: false,
     trendingPercent: 1.9,
     active: true,
+    id: 9,
   },
   {
     name: "Financoo",
@@ -78,5 +87,6 @@ export const projects = [
     trendingUp: true,
     trendingPercent: 11.0,
     active: true,
+    id: 10,
   },
 ];
