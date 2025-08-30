@@ -16,10 +16,8 @@ const REFRESH_SECRET = process.env.REFRESH_SECRET!;
 if (!JWT_SECRET) throw new Error("AUTH_SECRET not set");
 if (!REFRESH_SECRET) throw new Error("REFRESH_SECRET not set");
 
-//
-
 // Session endpoint
-sessionHandler.get("/session", async (c) => {
+sessionHandler.get("/", async (c) => {
   try {
     let token = await getSignedCookie(c, JWT_SECRET, "auth");
     let userFromDb = null;
@@ -43,8 +41,8 @@ sessionHandler.get("/session", async (c) => {
     if (!userFromDb) {
       const refresh = await getSignedCookie(c, REFRESH_SECRET, "refresh");
       if (!refresh) {
-        await deleteCookie(c, "auth", cookieOpts);
-        await deleteCookie(c, "refresh", cookieOpts);
+        deleteCookie(c, "auth", cookieOpts);
+        deleteCookie(c, "refresh", cookieOpts);
         return c.json(
           {
             success: false,
@@ -67,10 +65,10 @@ sessionHandler.get("/session", async (c) => {
           .limit(1);
 
         // check if refresh token is valid and not revoked
-        if (tokenRecord.length === 0 || tokenRecord[0].revoked) {
+        if (tokenRecord.length > 0 && tokenRecord[0].revoked) {
           // Invalidate and delete cookies if refresh token is invalid or revoked
-          await deleteCookie(c, "auth", cookieOpts);
-          await deleteCookie(c, "refresh", cookieOpts);
+          deleteCookie(c, "auth", cookieOpts);
+          deleteCookie(c, "refresh", cookieOpts);
           return c.json(
             {
               success: false,
@@ -89,8 +87,8 @@ sessionHandler.get("/session", async (c) => {
             .update(revokedTokens)
             .set({ revoked: true })
             .where(eq(revokedTokens.token, refresh));
-          await deleteCookie(c, "auth", cookieOpts);
-          await deleteCookie(c, "refresh", cookieOpts);
+          deleteCookie(c, "auth", cookieOpts);
+          deleteCookie(c, "refresh", cookieOpts);
           return c.json(
             {
               success: false,
@@ -118,8 +116,8 @@ sessionHandler.get("/session", async (c) => {
         userFromDb = rows[0];
 
         if (!userFromDb) {
-          await deleteCookie(c, "auth", cookieOpts);
-          await deleteCookie(c, "refresh", cookieOpts);
+          deleteCookie(c, "auth", cookieOpts);
+          deleteCookie(c, "refresh", cookieOpts);
           return c.json(
             {
               success: false,
@@ -131,8 +129,8 @@ sessionHandler.get("/session", async (c) => {
         }
       } catch (err: any) {
         console.error(err);
-        await deleteCookie(c, "auth", cookieOpts);
-        await deleteCookie(c, "refresh", cookieOpts);
+        deleteCookie(c, "auth", cookieOpts);
+        deleteCookie(c, "refresh", cookieOpts);
         return c.json(
           {
             success: false,
@@ -145,8 +143,8 @@ sessionHandler.get("/session", async (c) => {
     }
 
     if (!userFromDb) {
-      await deleteCookie(c, "auth", cookieOpts);
-      await deleteCookie(c, "refresh", cookieOpts);
+      deleteCookie(c, "auth", cookieOpts);
+      deleteCookie(c, "refresh", cookieOpts);
       return c.json(
         {
           success: false,
@@ -168,7 +166,7 @@ sessionHandler.get("/session", async (c) => {
 });
 
 // Active sessions endpoint
-sessionHandler.get("/sessions", async (c) => {
+sessionHandler.get("/all", async (c) => {
   try {
     const token = await getSignedCookie(c, JWT_SECRET, "auth");
     if (!token)
@@ -213,7 +211,7 @@ sessionHandler.get("/sessions", async (c) => {
 });
 
 // Revoke session endpoint
-sessionHandler.post("/sessions/revoke", async (c) => {
+sessionHandler.post("/revoke", async (c) => {
   try {
     const body = await c.req.json();
     const parsed = revokeSessionSchema.safeParse(body);
@@ -252,8 +250,8 @@ sessionHandler.get("/signout", async (c) => {
     const refresh = await getSignedCookie(c, REFRESH_SECRET, "refresh");
 
     // Immediately delete the cookies from the client
-    await deleteCookie(c, "auth", cookieOpts);
-    await deleteCookie(c, "refresh", cookieOpts);
+    deleteCookie(c, "auth", cookieOpts);
+    deleteCookie(c, "refresh", cookieOpts);
 
     if (refresh) {
       // Find the token record and revoke it in the database

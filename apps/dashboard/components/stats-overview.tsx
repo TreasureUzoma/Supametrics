@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { ArrowUpRight, Users, FileText, Folder } from "lucide-react";
 import {
   Card,
@@ -5,8 +8,20 @@ import {
   CardContent,
   CardTitle,
 } from "@repo/ui/components/ui/card";
+import { useStats } from "@/hooks/use-stats";
 
 export const StatsOverview = () => {
+  const { getUserStats } = useStats();
+  const [stats, setStats] = useState<any | null>(null);
+
+  useEffect(() => {
+    async function fetchStats() {
+      const data = await getUserStats();
+      setStats(data);
+    }
+    fetchStats();
+  }, [getUserStats]);
+
   return (
     <section>
       <h2 className="text-lg font-semibold mb-2">Overview</h2>
@@ -15,7 +30,7 @@ export const StatsOverview = () => {
           {
             title: "Total Visitors",
             icon: <Users className="h-4 w-4 text-muted-foreground" />,
-            value: "8,250",
+            value: stats?.data?.totalVisitors ?? "0",
             subtitle: (
               <p className="text-xs text-muted-foreground flex items-center gap-1">
                 <ArrowUpRight className="h-3 w-3 text-green-500" />

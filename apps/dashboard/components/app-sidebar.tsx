@@ -24,33 +24,39 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 import Logo from "@repo/ui/components/ui/logo";
+import { Skeleton } from "@repo/ui/components/ui/skeleton";
 
 export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
-  // ✅ Correctly call the hook inside the component function
-  const { user, isLoading, isError, refetch } = useSession();
+  const { user, isLoading, isError } = useSession();
 
-  // Define the data object inside the component so it has access to the user variable
+  // default placeholder data (so UI doesn’t break)
   const data = {
     user: {
-      name: user?.name,
-      email: user?.email,
-      avatar: user?.avatar,
+      name: user?.name ?? <Skeleton />,
+      email: user?.email ?? "loading@example.com",
+      avatar: user?.email
+        ? `https://avatar.vercel.sh/${user.email}`
+        : `https://avatar.vercel.sh/placeholder`,
     },
     teams: [
       {
         name: "My Workspace",
         logo: AudioWaveform,
-        plan: "Pro",
+        plan: user?.subscriptionType,
+        id: user?.uuid,
+        isPersonal: true,
       },
       {
         name: "Supametrics",
         logo: Command,
         plan: "Enterprise",
+        id: "team-2",
       },
       {
         name: "Sparka",
         logo: Command,
         plan: "Pro",
+        id: "team-3",
       },
     ],
     navLinks: [
@@ -81,8 +87,8 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
         url: "/settings",
         icon: Settings2,
         items: [
-          { title: "General", url: "/settinggs/general" },
-          { title: "Team", url: "/setttings/teams" },
+          { title: "General", url: "/settings/general" },
+          { title: "Team", url: "/settings/teams" },
           { title: "Billing", url: "/settings/billing" },
           { title: "Limits", url: "/settings/limits" },
         ],
@@ -104,14 +110,6 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
     ],
   };
 
-  if (isLoading) {
-    return <div>Loading sidebar...</div>;
-  }
-
-  if (isError) {
-    return <div>Error loading sidebar.</div>;
-  }
-
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
@@ -121,14 +119,19 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
         <div className="hidden w-full p-2 my-1 group-data-[collapsible=icon]:block">
           <Logo showText={false} />
         </div>
-        <TeamSwitcher teams={data.teams} />
+        <TeamSwitcher teams={data.teams} isLoading={isLoading} />
       </SidebarHeader>
 
       <SidebarContent className="!font-medium">
-        <NavMain navLinks={data.navLinks} navMain={data.navMain} />
+        <NavMain
+          navLinks={data.navLinks}
+          navMain={data.navMain}
+          isLoading={isLoading}
+        />
       </SidebarContent>
+
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser user={data.user} isLoading={isLoading} />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

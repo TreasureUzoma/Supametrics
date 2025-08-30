@@ -25,8 +25,8 @@ export const withAuth: MiddlewareHandler = async (c, next) => {
     // try refresh token
     const refresh = await getSignedCookie(c, REFRESH_SECRET, "refresh");
     if (!refresh) {
-      await deleteCookie(c, "auth", cookieOpts);
-      await deleteCookie(c, "refresh", cookieOpts);
+      deleteCookie(c, "auth", cookieOpts);
+      deleteCookie(c, "refresh", cookieOpts);
       return c.json(
         {
           data: null,
@@ -46,8 +46,8 @@ export const withAuth: MiddlewareHandler = async (c, next) => {
         .limit(1);
 
       if (tokenRecord.length === 0 || tokenRecord[0].revoked) {
-        await deleteCookie(c, "auth", cookieOpts);
-        await deleteCookie(c, "refresh", cookieOpts);
+        deleteCookie(c, "auth", cookieOpts);
+        deleteCookie(c, "refresh", cookieOpts);
         return c.json(
           {
             error: "Unauthorized",
@@ -66,8 +66,8 @@ export const withAuth: MiddlewareHandler = async (c, next) => {
           .update(revokedTokens)
           .set({ revoked: true })
           .where(eq(revokedTokens.token, refresh));
-        await deleteCookie(c, "auth", cookieOpts);
-        await deleteCookie(c, "refresh", cookieOpts);
+        deleteCookie(c, "auth", cookieOpts);
+        deleteCookie(c, "refresh", cookieOpts);
         return c.json(
           {
             error:
@@ -96,8 +96,8 @@ export const withAuth: MiddlewareHandler = async (c, next) => {
       });
     } catch (err: any) {
       console.error(err);
-      await deleteCookie(c, "auth", cookieOpts);
-      await deleteCookie(c, "refresh", cookieOpts);
+      deleteCookie(c, "auth", cookieOpts);
+      deleteCookie(c, "refresh", cookieOpts);
       return c.json({ error: "Unauthorized" }, 401);
     }
   }
@@ -112,8 +112,8 @@ export const withAuth: MiddlewareHandler = async (c, next) => {
 
     const existingUser = rows[0];
     if (!existingUser) {
-      await deleteCookie(c, "auth", cookieOpts);
-      await deleteCookie(c, "refresh", cookieOpts);
+      deleteCookie(c, "auth", cookieOpts);
+      deleteCookie(c, "refresh", cookieOpts);
       return c.json(
         {
           error: "Unauthorized",
@@ -129,8 +129,8 @@ export const withAuth: MiddlewareHandler = async (c, next) => {
     return next();
   } catch (err: any) {
     console.error(err);
-    await deleteCookie(c, "auth", cookieOpts);
-    await deleteCookie(c, "refresh", cookieOpts);
+    deleteCookie(c, "auth", cookieOpts);
+    deleteCookie(c, "refresh", cookieOpts);
     return c.json(
       {
         error: "Unauthorized",

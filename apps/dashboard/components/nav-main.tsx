@@ -38,9 +38,11 @@ type NavMainItem = {
 export function NavMain({
   navLinks,
   navMain,
+  isLoading,
 }: {
   navLinks: NavLink[];
   navMain: NavMainItem[];
+  isLoading: boolean;
 }) {
   const pathname = usePathname();
 

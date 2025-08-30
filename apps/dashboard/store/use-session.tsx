@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { useEffect } from "react";
 
 async function fetchSession() {
-  const { data: res } = await axiosFetch.get<Response>("/api/session");
+  const { data: res } = await axiosFetch.get<Response>("/session");
   if (!res.success) throw new Error("Failed to fetch session");
   return res.data;
 }
@@ -50,7 +50,7 @@ export function useSession() {
   }, [query.isSuccess, query.data, setUser]);
 
   useEffect(() => {
-    if (query.error) {
+    if (query.isError) {
       if ((query.error as any).response?.status === 401) {
         clearUser();
         toast.error("Your session has expired. Please log in again.");
@@ -66,5 +66,6 @@ export function useSession() {
     isLoading: query.isPending,
     isError: query.isError,
     refetch: query.refetch,
+    clearUser,
   };
 }
