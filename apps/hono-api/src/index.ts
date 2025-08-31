@@ -48,12 +48,14 @@ v1.get("/health", rateLimiter(60 * 1000, 5), (c) => {
   return c.json({ message: "Server is healthy!" });
 });
 
-// Auth routes (20 req per hour for login/signup etc 40 req per min for session, no auth required)
-v1.route("/auth", authHandler.use(rateLimiter(60 * 60 * 1000, 20)));
-v1.route("/session", sessionHandler.use(rateLimiter(60 * 60 * 1000, 40)));
+// Auth routes (15 req per hour for login/signup etc., no auth required)
+v1.route("/auth", authHandler.use(rateLimiter(60 * 60 * 1000, 15)));
 
 // Everything else requires authentication
 v1.use("*", withAuth);
+
+// Session — 90 requests/hour
+v1.route("/session", sessionHandler.use(rateLimiter(60 * 60 * 1000, 90)));
 
 // Projects — 100 requests/hour
 v1.route("/projects", projectRoutes.use(rateLimiter(60 * 60 * 1000, 100)));

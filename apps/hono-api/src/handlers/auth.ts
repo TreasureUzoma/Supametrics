@@ -17,8 +17,9 @@ import { cookieOpts } from "@/helpers/cookie-opts.js";
 
 const authHandler = new Hono();
 
-const JWT_SECRET = process.env.AUTH_SECRET!;
-const REFRESH_SECRET = process.env.REFRESH_SECRET!;
+export const JWT_SECRET = process.env.AUTH_SECRET!;
+export const REFRESH_SECRET = process.env.REFRESH_SECRET!;
+export const NODE_ENV = process.env.NODE_ENV || "development";
 
 if (!JWT_SECRET) throw new Error("AUTH_SECRET not set");
 if (!REFRESH_SECRET) throw new Error("REFRESH_SECRET not set");

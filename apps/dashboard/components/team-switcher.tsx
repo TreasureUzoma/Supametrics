@@ -20,16 +20,19 @@ import {
 import { Skeleton } from "@repo/ui/components/ui/skeleton";
 import Link from "next/link";
 import { useWorkspace } from "@/store/use-workspace";
+import { TeamLogo } from "./team-logo";
 
 export function TeamSwitcher({
   teams,
   isLoading,
 }: {
   teams: {
+    uuid: string;
     name: string;
-    logo: React.ElementType;
-    plan: string;
-    id: string;
+    logo: {
+      src: string;
+    };
+    subscriptionType: string;
     isPersonal?: boolean;
   }[];
   isLoading: boolean;
@@ -39,10 +42,10 @@ export function TeamSwitcher({
 
   // pick default workspace if none is selected yet
   React.useEffect(() => {
-    if (!activeWorkspace && teams.length > 0) {
+    if (teams.length > 0) {
       setActiveWorkspace(teams[0]!);
     }
-  }, [activeWorkspace, teams, setActiveWorkspace]);
+  }, [teams, setActiveWorkspace]);
 
   const activeTeam = activeWorkspace ?? teams[0];
   if (!activeTeam) return null;
@@ -57,12 +60,12 @@ export function TeamSwitcher({
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-                <activeTeam.logo className="size-4" />
+                <TeamLogo src={activeTeam.logo.src} name={activeTeam.name} />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{activeTeam.name}</span>
                 <span className="truncate text-xs capitalize">
-                  {isLoading ? <Skeleton /> : activeTeam.plan}
+                  {isLoading ? <Skeleton /> : activeTeam.subscriptionType}
                 </span>
               </div>
               <ChevronsUpDown className="ml-auto" />
@@ -81,12 +84,12 @@ export function TeamSwitcher({
 
             {teams.map((team) => (
               <DropdownMenuItem
-                key={team.id}
+                key={team.uuid}
                 onClick={() => setActiveWorkspace(team)}
                 className="gap-2 p-2"
               >
                 <div className="flex size-6 items-center justify-center rounded-md border border-border">
-                  <team.logo className="size-3.5 shrink-0" />
+                  <TeamLogo src={team.logo.src} name={team.name} />
                 </div>
                 <div className="flex flex-col">
                   <span>{team.name}</span>

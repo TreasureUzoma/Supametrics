@@ -12,17 +12,11 @@ const teamRoutes = new Hono<{ Variables: AuthType }>();
 // GET /teams - all teams user is in
 teamRoutes.get("/", async (c) => {
   const currentUser = await getUserOrNull(c);
-
-  // Validate authentication
-  if (!currentUser?.uuid) {
-    return c.json({ error: "Unauthorized" }, 401);
-  }
-
   const results = await db
     .select({ team: teams, role: teamMembers.role })
     .from(teamMembers)
     .innerJoin(teams, eq(teamMembers.teamId, teams.uuid))
-    .where(eq(teamMembers.userId, currentUser.uuid));
+    .where(eq(teamMembers.userId, currentUser!.uuid));
 
   return c.json({
     success: true,

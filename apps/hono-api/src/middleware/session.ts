@@ -1,14 +1,11 @@
 import type { MiddlewareHandler } from "hono";
 import { db } from "../db/index.js";
 import { revokedTokens, user } from "../db/auth-schema.js";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import jwt from "jsonwebtoken";
-import { getSignedCookie, setSignedCookie, deleteCookie } from "hono/cookie";
-import { success } from "zod";
-
-const JWT_SECRET = process.env.AUTH_SECRET!;
-const REFRESH_SECRET = process.env.REFRESH_SECRET!;
-const NODE_ENV = process.env.NODE_ENV || "development";
+import { getSignedCookie, setSignedCookie } from "hono/cookie";
+import { JWT_SECRET, NODE_ENV, REFRESH_SECRET } from "@/handlers/auth.js";
+import { unauthorized } from "@/lib/unauthorized.js";
 
 const cookieOpts = {
   httpOnly: true,
@@ -19,74 +16,27 @@ const cookieOpts = {
 
 export const withAuth: MiddlewareHandler = async (c, next) => {
   let token = await getSignedCookie(c, JWT_SECRET, "auth");
-  const userAgent = c.req.header("User-Agent") || "unknown";
 
   if (!token) {
-    // try refresh token
     const refresh = await getSignedCookie(c, REFRESH_SECRET, "refresh");
-    if (!refresh) {
-      deleteCookie(c, "auth", cookieOpts);
-      deleteCookie(c, "refresh", cookieOpts);
-      return c.json(
-        {
-          data: null,
-          success,
-          message: "Login to continue",
-        },
-        401
-      );
-    }
+    if (!refresh) return unauthorized(c);
 
     try {
-      // Check if the refresh token is valid and not revoked in the database
-      const tokenRecord = await db
+      // validate refresh token is not revoked
+      const [tokenRecord] = await db
         .select()
         .from(revokedTokens)
         .where(eq(revokedTokens.token, refresh))
         .limit(1);
 
-      if (tokenRecord.length === 0 || tokenRecord[0].revoked) {
-        deleteCookie(c, "auth", cookieOpts);
-        deleteCookie(c, "refresh", cookieOpts);
-        return c.json(
-          {
-            error: "Unauthorized",
-            data: null,
-            success,
-            message: "Login to continue",
-          },
-          401
-        );
-      }
-
-      // Security enhancement: Verify the user agent
-      if (userAgent !== tokenRecord[0].userAgent) {
-        // Revoke the token to prevent future use on a different device
-        await db
-          .update(revokedTokens)
-          .set({ revoked: true })
-          .where(eq(revokedTokens.token, refresh));
-        deleteCookie(c, "auth", cookieOpts);
-        deleteCookie(c, "refresh", cookieOpts);
-        return c.json(
-          {
-            error:
-              "Unauthorized: Session user agent mismatch. Please sign in again.",
-            data: null,
-            success: false,
-            message:
-              "Unauthorized: Session user agent mismatch. Please sign in again.",
-          },
-          401
-        );
-      }
+      if (tokenRecord?.revoked) return unauthorized(c);
 
       const decodedRefresh = jwt.verify(refresh, REFRESH_SECRET) as {
-        userId: string;
+        uuid: string;
       };
 
-      // If the refresh token is valid, issue a new access token
-      token = jwt.sign({ userId: decodedRefresh.userId }, JWT_SECRET, {
+      // issue fresh short-lived access token
+      token = jwt.sign({ uuid: decodedRefresh.uuid }, JWT_SECRET, {
         expiresIn: "15m",
       });
 
@@ -94,51 +44,35 @@ export const withAuth: MiddlewareHandler = async (c, next) => {
         ...cookieOpts,
         maxAge: 15 * 60,
       });
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      deleteCookie(c, "auth", cookieOpts);
-      deleteCookie(c, "refresh", cookieOpts);
-      return c.json({ error: "Unauthorized" }, 401);
+      return unauthorized(c);
     }
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
-    const rows = await db
+    const decoded = jwt.verify(token, JWT_SECRET) as { uuid: string };
+
+    const [existingUser] = await db
       .select()
       .from(user)
-      .where(eq(user.uuid, decoded.userId))
+      .where(eq(user.uuid, decoded.uuid))
       .limit(1);
 
-    const existingUser = rows[0];
-    if (!existingUser) {
-      deleteCookie(c, "auth", cookieOpts);
-      deleteCookie(c, "refresh", cookieOpts);
-      return c.json(
-        {
-          error: "Unauthorized",
-          data: null,
-          success,
-          message: "Login to continue",
-        },
-        401
-      );
-    }
+    if (!existingUser) return unauthorized(c);
 
-    c.set("user", existingUser);
+    const safeUser = {
+      uuid: existingUser.uuid,
+      email: existingUser.email,
+      name: existingUser.name,
+      role: existingUser.role,
+      subscriptionType: existingUser.subscriptionType,
+    };
+
+    c.set("user", safeUser);
     return next();
-  } catch (err: any) {
+  } catch (err) {
     console.error(err);
-    deleteCookie(c, "auth", cookieOpts);
-    deleteCookie(c, "refresh", cookieOpts);
-    return c.json(
-      {
-        error: "Unauthorized",
-        data: null,
-        success,
-        message: "Login to continue",
-      },
-      401
-    );
+    return unauthorized(c);
   }
 };

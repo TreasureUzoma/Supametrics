@@ -4,13 +4,15 @@ import axiosFetch from "@repo/ui/lib/axios";
 import { Response } from "@repo/ui/types";
 import { useWorkspace } from "@/store/use-workspace";
 
+import { useCallback } from "react";
+
 export function useStats() {
   const { activeWorkspace } = useWorkspace();
 
-  const getUserStats = async () => {
+  const getUserStats = useCallback(async () => {
     if (!activeWorkspace) return null;
 
-    const { isPersonal, id: workspaceId } = activeWorkspace;
+    const { isPersonal, uuid: workspaceId } = activeWorkspace;
 
     try {
       const { data: response } = await axiosFetch.get<Response>(
@@ -21,7 +23,7 @@ export function useStats() {
       console.error("Error fetching user stats:", error);
       return null;
     }
-  };
+  }, [activeWorkspace]);
 
   return { getUserStats };
 }

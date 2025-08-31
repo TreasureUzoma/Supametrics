@@ -3,11 +3,13 @@
 import { create } from "zustand";
 
 type Workspace = {
-  id: string;
+  uuid: string;
   name: string;
-  logo: React.ElementType;
-  plan: string;
-  isPersonal?: boolean; // true if it’s the user’s personal workspace
+  logo: {
+    src: string;
+  };
+  subscriptionType: string;
+  isPersonal?: boolean;
 };
 
 interface WorkspaceState {
@@ -22,11 +24,10 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
   workspaces: [],
   activeWorkspace: null,
   setWorkspaces: (workspaces) =>
-    set((state) => ({
+    set({
       workspaces,
-      activeWorkspace:
-        state.activeWorkspace ?? (workspaces.length > 0 ? workspaces[0] : null),
-    })),
+      activeWorkspace: workspaces.length > 0 ? workspaces[0] : null,
+    }),
   setActiveWorkspace: (workspace) => set({ activeWorkspace: workspace }),
   get isPersonalWorkspace() {
     return get().activeWorkspace?.isPersonal ?? false;

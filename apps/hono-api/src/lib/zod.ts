@@ -54,4 +54,6 @@ export const updateProfileSchema = z.object({
   image: z.url().optional(), // deprecated
 });
 
+export const isValidUUID = z.uuid("Invalid UUID format");
+
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;

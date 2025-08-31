@@ -9,7 +9,7 @@ import {
 import { user } from "../db/auth-schema.js";
 import { eq, and, isNull } from "drizzle-orm";
 import { nanoid } from "nanoid";
-import { createProjectSchema } from "@/lib/zod.js";
+import { createProjectSchema, isValidUUID } from "@/lib/zod.js";
 import { slugifyProjectName } from "../lib/slugify.js";
 import { generateApiKeys, getPaginationParams } from "../lib/utils.js";
 import {
@@ -128,75 +128,95 @@ projectRoutes.post("/new", async (c) => {
 
 // get all projects
 projectRoutes.get("/", async (c) => {
-  const currentUser = await getUserOrNull(c);
+  try {
+    const currentUser = await getUserOrNull(c);
 
-  // Validate authentication
-  if (!currentUser?.uuid) {
-    return c.json({ error: "Unauthorized" }, 401);
-  }
-  const userId = currentUser.uuid;
-  const { page, limit, offset } = getPaginationParams(c);
+    const userId = currentUser!.uuid;
+    const { page, limit, offset } = getPaginationParams(c);
 
-  const search = c.req.query("search")?.toLowerCase() || "";
-  const type = c.req.query("type"); // 'personal' | 'team' | undefined (all)
+    const search = c.req.query("search")?.toLowerCase() || "";
+    const type = c.req.query("type"); // 'personal' | 'team' | undefined
+    const teamId = c.req.query("teamId");
+    const sort = c.req.query("sort") || "newest"; // 'newest' or 'oldest'
 
-  // Fetch both types
-  const owned = await db
-    .select()
-    .from(projects)
-    .where(eq(projects.userId, userId));
+    let allProjects: any[] = [];
 
-  const memberOf = await db
-    .select({ project: projects, role: projectMembers.role })
-    .from(projectMembers)
-    .innerJoin(projects, eq(projectMembers.projectId, projects.uuid))
-    .where(eq(projectMembers.userId, userId));
+    if (type === "team") {
+      if (!teamId) {
+        return c.json(
+          {
+            success: false,
+            message: "teamId is required when filtering by team projects",
+            data: [],
+          },
+          400
+        );
+      }
 
-  // Combine + assign role
-  let allProjects = [
-    ...owned.map((p: any) => ({ ...p, role: "owner" as const })),
-    ...memberOf.map((m: any) => ({ ...m.project, role: m.role })),
-  ];
+      if (!isValidUUID.safeParse(teamId).success) {
+        return c.json({ success: false, message: "Invalid teamId UUID" }, 400);
+      }
 
-  // filter: Search by name
-  if (search) {
-    allProjects = allProjects.filter((p) =>
-      p.name.toLowerCase().includes(search)
+      allProjects = await db
+        .select({ project: projects, role: projectMembers.role })
+        .from(projectMembers)
+        .innerJoin(projects, eq(projectMembers.projectId, projects.uuid))
+        .where(
+          and(eq(projectMembers.userId, userId), eq(projects.teamId, teamId))
+        )
+        .then((rows) => rows.map((r) => ({ ...r.project, role: r.role })));
+    } else {
+      // Fetch personal projects and all memberships
+      const owned = await db
+        .select()
+        .from(projects)
+        .where(eq(projects.userId, userId));
+      const memberOf = await db
+        .select({ project: projects, role: projectMembers.role })
+        .from(projectMembers)
+        .innerJoin(projects, eq(projectMembers.projectId, projects.uuid))
+        .where(eq(projectMembers.userId, userId));
+
+      allProjects = [
+        ...owned.map((p: any) => ({ ...p, role: "owner" as const })),
+        ...memberOf.map((m: any) => ({ ...m.project, role: m.role })),
+      ];
+    }
+
+    if (search) {
+      allProjects = allProjects.filter((p) =>
+        p.name.toLowerCase().includes(search)
+      );
+    }
+
+    allProjects.sort((a, b) => {
+      if (sort === "oldest") {
+        return (
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        );
+      }
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+
+    const paginatedProjects = allProjects.slice(offset, offset + limit);
+
+    return c.json({
+      success: true,
+      message: "Projects fetched successfully",
+      data: { projects: paginatedProjects },
+      pagination: { page, limit, total: allProjects.length },
+    });
+  } catch (err: any) {
+    console.error("Failed to fetch projects:", err);
+    return c.json(
+      {
+        success: false,
+        message: err?.message ?? "Failed to fetch projects",
+        data: [],
+      },
+      500
     );
   }
-
-  // filter: Personal or Team
-  if (type === "personal") {
-    allProjects = allProjects.filter((p) => !p.teamId);
-  } else if (type === "team") {
-    allProjects = allProjects.filter((p) => !!p.teamId);
-  }
-
-  // sort (e.g., most recent first)
-  allProjects.sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
-
-  const paginated = await Promise.all(
-    allProjects.slice(offset, offset + limit).map(async (project) => {
-      const weeklyAgg = await getWeeklyProjectAggregate(project.uuid);
-
-      return {
-        ...project,
-        analytics: weeklyAgg,
-      };
-    })
-  );
-  return c.json({
-    success: true,
-    projects: paginated,
-    pagination: {
-      page,
-      limit,
-      total: allProjects.length,
-      totalPages: Math.ceil(allProjects.length / limit),
-    },
-  });
 });
 
 // Rotate key

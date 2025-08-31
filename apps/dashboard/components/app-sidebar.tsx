@@ -3,10 +3,8 @@
 import { useSession } from "@/store/use-session";
 import * as React from "react";
 import {
-  AudioWaveform,
   BookOpen,
   Sparkle,
-  Command,
   LayoutDashboard,
   LifeBuoy,
   Settings2,
@@ -27,38 +25,41 @@ import Logo from "@repo/ui/components/ui/logo";
 import { Skeleton } from "@repo/ui/components/ui/skeleton";
 
 export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
-  const { user, isLoading, isError } = useSession();
+  const { user, isLoading } = useSession();
 
-  // default placeholder data (so UI doesn’t break)
+  const personalWorkspace = {
+    id: "personal", // fixed id
+    name: "My Workspace",
+    logo: {
+      src: `https://avatar.vercel.sh/${user?.email}`,
+      alt: "My Workspace",
+    },
+    subscriptionType: user?.subscriptionType,
+    isPersonal: true,
+  };
+
+  // map user teams (skip if isPersonal)
+  const mappedTeams =
+    user?.teams
+      ?.filter((team: any) => !team.isPersonal)
+      .map((team: any) => ({
+        uuid: team.uuid,
+        name: team.name,
+        logo: {
+          src: `https://avatar.vercel.sh/${team.uuid}`,
+          alt: team.name,
+        },
+        subscriptionType: team.subscriptionType ?? "Free",
+        isPersonal: false,
+      })) ?? [];
+
   const data = {
     user: {
       name: user?.name ?? <Skeleton />,
       email: user?.email ?? "loading@example.com",
-      avatar: user?.email
-        ? `https://avatar.vercel.sh/${user.email}`
-        : `https://avatar.vercel.sh/placeholder`,
+      avatar: `https://avatar.vercel.sh/${user?.email ?? "placeholder"}`,
     },
-    teams: [
-      {
-        name: "My Workspace",
-        logo: AudioWaveform,
-        plan: user?.subscriptionType,
-        id: user?.uuid,
-        isPersonal: true,
-      },
-      {
-        name: "Supametrics",
-        logo: Command,
-        plan: "Enterprise",
-        id: "team-2",
-      },
-      {
-        name: "Sparka",
-        logo: Command,
-        plan: "Pro",
-        id: "team-3",
-      },
-    ],
+    teams: [personalWorkspace, ...mappedTeams],
     navLinks: [
       {
         title: "Dashboard",
