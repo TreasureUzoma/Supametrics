@@ -16,6 +16,7 @@ export function useLogout() {
       router.push("/login");
     } catch (error) {
       console.error("Error logging out:", error);
+      router.push("/login");
     }
   };
 

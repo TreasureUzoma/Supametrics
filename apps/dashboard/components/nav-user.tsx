@@ -4,7 +4,6 @@ import {
   BadgeCheck,
   Bell,
   ChevronsUpDown,
-  CreditCard,
   LogOut,
   Sparkles,
 } from "lucide-react";
@@ -34,7 +33,6 @@ import Link from "next/link";
 
 export function NavUser({
   user,
-  isLoading,
 }: {
   user: {
     name: string;

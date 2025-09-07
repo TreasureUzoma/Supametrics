@@ -1,17 +1,19 @@
 # Supametrics: A Unified Analytics Platform 🚀
 
-Supametrics is a robust, developer-focused analytics platform designed to provide insightful data with a minimal, premium interface. This monorepo project combines a powerful Next.js dashboard, a high-performance Hono (TypeScript) API for user and project management, and an efficient Go Fiber API for real-time analytics ingestion. It's built for precision, selfhosting and scalability, empowering developers to understand their applications' usage patterns.
+Supametrics is a robust, developer-focused analytics platform designed to provide insightful data with a minimal, premium interface. This monorepo project combines a powerful Next.js dashboard, a high-performance Hono (TypeScript) API for user and project management, and an efficient Go Fiber API for real-time analytics ingestion. It's built for precision, selfhosting and scalability, empowering developers to understand their applications' usage patterns. Supametrics aims to be a privacy-first, open-source web analytics solution, offering a lightweight and privacy-friendly alternative to Google Analytics, designed for self-hosting and complete data ownership.
 
 ## Features
 
-- **Real-time Analytics Ingestion**: Efficiently logs and tracks analytics events via a dedicated Go Fiber API, secured by public API keys.
-- **Comprehensive User & Project Management**: Manage users, create and organize projects, and oversee teams through a robust Hono (TypeScript) API.
-- **Secure Authentication & Authorization**: Implements email/password authentication, supports OAuth (Google, GitHub), and includes session management with JWT and refresh tokens.
-- **Role-Based Access Control (RBAC)**: Defines granular permissions for users (`user`, `admin`, `superadmin`), teams (`owner`, `member`, `viewer`), and projects (`admin`, `editor`, `viewer`).
-- **API Key Management**: Generate and rotate public and secret API keys for secure data ingestion and authorized analytics retrieval.
-- **Intelligent Rate Limiting & Quotas**: Protects against abuse and enforces plan-based usage limits using Redis for caching and rate-limiting.
-- **Dynamic Reporting**: Generate and manage various reports on project analytics data through a dedicated API.
+- **Real-time Analytics Ingestion**: Efficiently logs and tracks analytics events via a dedicated Go Fiber API, secured by public API keys, supporting batched ingestion and caching hot data in Redis.
+- **Comprehensive User & Project Management**: Manage users, create and organize projects, and oversee teams through a robust Hono (TypeScript) API. Includes CRUD operations for projects and teams, inviting users to teams and projects, and assigning roles.
+- **Secure Authentication & Authorization**: Implements email/password authentication with JWT and refresh tokens, supports OAuth (Google, GitHub), role-based access control (user, admin, superadmin for users; owner, member, viewer for teams/projects), session management (revoke, list, expire), and account restriction (suspended, read-only).
+- **API Key Management**: Secure generation, rotation, and revocation of public and secret API keys for each project to control external access, with project-scoped access and enforcement.
+- **Intelligent Rate Limiting & Quotas**: Protects against abuse and enforces plan-based usage limits (free, paid, enterprise) for both API requests and monthly event quotas, utilizing Redis for caching and rate-limiting.
+- **Dynamic Reporting & Analytics Retrieval**: Generate and retrieve custom reports based on collected analytics data (e.g., event summaries, OS, device, browser summaries, top paths, referrers, hostnames, UTM sources), with secret key access for project owners and pagination for large datasets.
+- **Advanced Analytics Processing**: Features cron jobs for rolling up analytics into summary tables, archiving old raw events, recalculating cached aggregates, and sending daily/weekly reports via email. Future plans include async ingestion via Redis queues and bulk inserts to PostgreSQL for scaling.
 - **Modern Interactive Dashboard**: A sleek Next.js dashboard provides a visually appealing and highly responsive interface for data visualization, powered by Tailwind CSS, shadcn/ui, and Framer Motion.
+- **Subscription Plan Enforcement**: Support for multiple user plans (free, paid, enterprise) with usage tracking (project count, team count) and plan upgrades/downgrades.
+- **Admin Capabilities**: (Roadmap) Includes viewing user logs, suspending/restricting user accounts, audit log access, and a system metrics dashboard for super admins.
 
 ## Getting Started
 
@@ -139,34 +141,41 @@ Go to /apps/go-server for further details
 
 ## Technologies Used
 
-| Category         | Technology                                                            | Purpose                                                                 |
-| :--------------- | :-------------------------------------------------------------------- | :---------------------------------------------------------------------- |
-| **Frontend**     | [Next.js](https://nextjs.org/)                                        | React framework for building user interfaces                            |
-|                  | [React](https://react.dev/)                                           | JavaScript library for building interactive UIs                         |
-|                  | [Tailwind CSS](https://tailwindcss.com/)                              | Utility-first CSS framework for rapid styling                           |
-|                  | [shadcn/ui](https://ui.shadcn.com/)                                   | Reusable UI components based on Radix UI and Tailwind CSS               |
-|                  | [Framer Motion](https://www.framer.com/motion/)                       | Animation library for smooth UI transitions                             |
-|                  | [Lucide Icons](https://lucide.dev/)                                   | Modern icon set for the dashboard                                       |
-|                  | [axios](https://axios-http.com/)                                      | Promise-based HTTP client for the browser and Node.js                   |
-|                  | [sonner](https://sonner.emilkowal.ski/)                               | Accessible toast library for notifications                              |
-| **Backend (TS)** | [Hono](https://hono.dev/)                                             | Web framework for building fast APIs with TypeScript                    |
-|                  | [Node.js](https://nodejs.org/en)                                      | JavaScript runtime environment                                          |
-|                  | [Drizzle ORM](https://orm.drizzle.team/)                              | TypeScript ORM for PostgreSQL database interactions                     |
-|                  | [jsonwebtoken](https://www.npmjs.com/package/jsonwebtoken)            | JSON Web Token implementation for authentication                        |
-|                  | [better-auth](https://www.npmjs.com/package/better-auth)              | Authentication utilities                                                |
-|                  | [nanoid](https://www.npmjs.com/package/nanoid)                        | Tiny, secure, URL-friendly, unique string ID generator                  |
-|                  | [zod](https://zod.dev/)                                               | Schema declaration and validation library                               |
-| **Backend (Go)** | [Go](https://go.dev/)                                                 | Programming language for building efficient and reliable software       |
-|                  | [Fiber](https://gofiber.io/)                                          | Express.js-inspired web framework for Go                                |
-|                  | [github.com/google/uuid](https://pkg.go.dev/github.com/google/uuid)   | Package for UUID generation                                             |
-|                  | [github.com/joho/godotenv](https://github.com/joho/godotenv)          | GoDotEnv for loading environment variables from `.env` files            |
-| **Database**     | [Neon PostgreSQL](https://neon.tech/)                                 | Serverless PostgreSQL database for persistent storage                   |
-|                  | [Redis](https://redis.io/)                                            | In-memory data store for caching, rate-limiting, and session management |
-| **Monorepo**     | [Turborepo](https://turbo.build/repo)                                 | High-performance build system for JavaScript and TypeScript monorepos   |
-|                  | [npm Workspaces](https://docs.npmjs.com/cli/v10/using-npm/workspaces) | Manages multiple packages within a single root project                  |
-| **Tooling**      | [TypeScript](https://www.typescriptlang.org/)                         | Superset of JavaScript for type safety                                  |
-|                  | [ESLint](https://eslint.org/)                                         | Pluggable JavaScript linter                                             |
-|                  | [Prettier](https://prettier.io/)                                      | Opinionated code formatter                                              |
+| Category         | Technology                                                            | Purpose                                                                 | Link                                                                    |
+| :--------------- | :-------------------------------------------------------------------- | :---------------------------------------------------------------------- | :---------------------------------------------------------------------- |
+| **Monorepo**     | [Turborepo](https://turbo.build/repo)                                 | High-performance build system for JavaScript and TypeScript monorepos   | [Turborepo.com](https://turbo.build/repo)                               |
+|                  | [npm Workspaces](https://docs.npmjs.com/cli/v10/using-npm/workspaces) | Manages multiple packages within a single root project                  | [npmjs.com](https://docs.npmjs.com/cli/v10/using-npm/workspaces)        |
+| **Frontend**     | [Next.js](https://nextjs.org/)                                        | React framework for building user interfaces                            | [Nextjs.org](https://nextjs.org/)                                       |
+|                  | [React](https://react.dev/)                                           | JavaScript library for building interactive UIs                         | [React.dev](https://react.dev/)                                         |
+|                  | [Tailwind CSS](https://tailwindcss.com/)                              | Utility-first CSS framework for rapid styling                           | [Tailwindcss.com](https://tailwindcss.com/)                             |
+|                  | [shadcn/ui](https://ui.shadcn.com/)                                   | Reusable UI components based on Radix UI and Tailwind CSS               | [Ui.shadcn.com](https://ui.shadcn.com/)                                 |
+|                  | [Framer Motion](https://www.framer.com/motion/)                       | Animation library for smooth UI transitions                             | [Framer.com](https://www.framer.com/motion/)                            |
+|                  | [Lucide Icons](https://lucide.dev/)                                   | Modern icon set for the dashboard                                       | [Lucide.dev](https://lucide.dev/)                                       |
+|                  | [Tabler Icons React](https://tabler-icons-react.vercel.app/)          | Another icon set used for specific components                           | [Tabler-icons-react.vercel.app](https://tabler-icons-react.vercel.app/) |
+|                  | [Axios](https://axios-http.com/)                                      | Promise-based HTTP client for the browser and Node.js                   | [Axios-http.com](https://axios-http.com/)                               |
+|                  | [Sonner](https://sonner.emilkowal.ski/)                               | Accessible toast library for notifications                              | [Sonner.emilkowal.ski](https://sonner.emilkowal.ski/)                   |
+|                  | [next-themes](https://www.npmjs.com/package/next-themes)              | Manages theme switching (light/dark mode)                               | [npmjs.com](https://www.npmjs.com/package/next-themes)                  |
+|                  | [Zustand](https://zustand-store.app/)                                 | Small, fast, and scalable bearbones state-management solution           | [Zustand-store.app](https://zustand-store.app/)                         |
+|                  | [@tanstack/react-query](https://tanstack.com/query/latest)            | Data-fetching and state management for React                            | [Tanstack.com](https://tanstack.com/query/latest)                       |
+| **Backend (TS)** | [Hono](https://hono.dev/)                                             | Web framework for building fast APIs with TypeScript                    | [Hono.dev](https://hono.dev/)                                           |
+|                  | [Node.js](https://nodejs.org/en)                                      | JavaScript runtime environment                                          | [Nodejs.org](https://nodejs.org/en)                                     |
+|                  | [Drizzle ORM](https://orm.drizzle.team/)                              | TypeScript ORM for PostgreSQL database interactions                     | [Orm.drizzle.team](https://orm.drizzle.team/)                           |
+|                  | [jsonwebtoken](https://www.npmjs.com/package/jsonwebtoken)            | JSON Web Token implementation for authentication                        | [npmjs.com](https://www.npmjs.com/package/jsonwebtoken)                 |
+|                  | [bcrypt-ts](https://www.npmjs.com/package/bcrypt-ts)                  | TypeScript-first bcrypt implementation for password hashing             | [npmjs.com](https://www.npmjs.com/package/bcrypt-ts)                    |
+|                  | [nanoid](https://www.npmjs.com/package/nanoid)                        | Tiny, secure, URL-friendly, unique string ID generator                  | [npmjs.com](https://www.npmjs.com/package/nanoid)                       |
+|                  | [Zod](https://zod.dev/)                                               | TypeScript-first schema declaration and validation library              | [Zod.dev](https://zod.dev/)                                             |
+| **Backend (Go)** | [Go](https://go.dev/)                                                 | Programming language for building efficient and reliable software       | [Go.dev](https://go.dev/)                                               |
+|                  | [Fiber](https://gofiber.io/)                                          | Express.js-inspired web framework for Go                                | [Gofiber.io](https://gofiber.io/)                                       |
+|                  | [github.com/google/uuid](https://pkg.go.dev/github.com/google/uuid)   | Package for UUID generation                                             | [pkg.go.dev](https://pkg.go.dev/github.com/google/uuid)                 |
+|                  | [github.com/joho/godotenv](https://github.com/joho/godotenv)          | GoDotEnv for loading environment variables from `.env` files            | [Github.com](https://github.com/joho/godotenv)                          |
+|                  | [github.com/lib/pq](https://github.com/lib/pq)                        | PostgreSQL driver for Go&apos;s database/sql package                    | [Github.com](https://github.com/lib/pq)                                 |
+|                  | [github.com/redis/go-redis/v9](https://github.com/redis/go-redis/v9)  | Redis client for Go                                                     | [Github.com](https://github.com/redis/go-redis/v9)                      |
+| **Database**     | [Neon PostgreSQL](https://neon.tech/)                                 | Serverless PostgreSQL database for persistent storage                   | [Neon.tech](https://neon.tech/)                                         |
+|                  | [Redis](https://redis.io/)                                            | In-memory data store for caching, rate-limiting, and session management | [Redis.io](https://redis.io/)                                           |
+| **Tooling**      | [TypeScript](https://www.typescriptlang.org/)                         | Superset of JavaScript for type safety                                  | [Typescriptlang.org](https://www.typescriptlang.org/)                   |
+|                  | [ESLint](https://eslint.org/)                                         | Pluggable JavaScript linter                                             | [Eslint.org](https://eslint.org/)                                       |
+|                  | [Prettier](https://prettier.io/)                                      | Opinionated code formatter                                              | [Prettier.io](https://prettier.io/)                                     |
+|                  | [tsx](https://www.npmjs.com/package/tsx)                              | TypeScript execution environment for Node.js                            | [npmjs.com](https://www.npmjs.com/package/tsx)                          |
 
 ## Contributing
 
@@ -192,8 +201,8 @@ Connect with the author of Supametrics:
 
 ---
 
-[![Main Workflow](https://github.com/Supametrics/supametrics/actions/workflows/main.yml/badge.svg)](https://github.com/supamettrics/supametrics/actions/workflows/main.yml)
-[![Top Language](https://img.shields.io/github/languages/top/supaetrics/supametrics?color=blue)](https://github.com/supaetrics/supametrics)
-[![Repo Size](https://img.shields.io/github/repo-size/supaetrics/supametrics)](https://github.com/supaetrics/supametrics)
-[![Contributors](https://img.shields.io/github/contributors/supaetrics/supametrics)](https://github.com/supaetrics/supametrics/graphs/contributors)
-[![Readme was generated by Dokugen](https://img.shields.io/badge/Readme%20was%20generated%20by-Dokugen-brightgreen)](https://www.npmjs.com/package/dokugen)
+[![Main Workflow](https://github.com/Supametrics/supametrics/actions/workflows/main.yml/badge.svg)](https://github.com/Supametrics/supametrics/actions/workflows/main.yml)
+[![Top Language](https://img.shields.io/github/languages/top/supametrics/supametrics?color=blue)](https://github.com/Supametrics/supametrics)
+[![Repo Size](https://img.shields.io/github/repo-size/supametrics/supametrics)](https://github.com/Supametrics/supametrics)
+[![Contributors](https://img.shields.io/github/contributors/supametrics/supametrics)](https://github.com/Supametrics/supametrics/graphs/contributors)
+[![Readme was generated by Readmit](https://img.shields.io/badge/Readme%20was%20generated%20by-Readmit-brightred)](https://readmit.vercel.app)

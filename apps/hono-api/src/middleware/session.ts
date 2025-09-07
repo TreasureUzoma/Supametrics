@@ -4,15 +4,9 @@ import { revokedTokens, user } from "../db/auth-schema.js";
 import { eq } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import { getSignedCookie, setSignedCookie } from "hono/cookie";
-import { JWT_SECRET, NODE_ENV, REFRESH_SECRET } from "@/handlers/auth.js";
+import { JWT_SECRET, REFRESH_SECRET } from "@/handlers/auth.js";
 import { unauthorized } from "@/lib/unauthorized.js";
-
-const cookieOpts = {
-  httpOnly: true,
-  secure: NODE_ENV === "production",
-  sameSite: "Strict" as const,
-  path: "/",
-};
+import { cookieOpts } from "@/helpers/cookie-opts.js";
 
 export const withAuth: MiddlewareHandler = async (c, next) => {
   let token = await getSignedCookie(c, JWT_SECRET, "auth");

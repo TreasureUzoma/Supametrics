@@ -19,7 +19,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <SidebarTrigger className="-ml-1" />
           </div>
           <div className="flex justify-end w-full pr-4 gap-4">
-            <Link href="/reports">
+            <Link href="/notifications">
               <Button variant="outline">
                 <Bell />
               </Button>

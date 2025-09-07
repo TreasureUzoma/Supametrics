@@ -49,7 +49,6 @@ authHandler.post("/signup", async (c) => {
       .limit(1);
 
     if (existing.length > 0)
-      // Generic message to prevent email enumeration
       return c.json(
         {
           success: false,
