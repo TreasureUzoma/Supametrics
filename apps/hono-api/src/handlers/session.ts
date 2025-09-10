@@ -28,7 +28,7 @@ sessionHandler.get("/", async (c) => {
     {
       success: true,
       message: "Session Active",
-      data: { user: currentUser, teams: userTeams },
+      data: { user: { ...currentUser, teams: userTeams } },
     },
     200
   );

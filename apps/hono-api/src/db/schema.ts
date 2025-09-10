@@ -74,6 +74,8 @@ export const projects = pgTable(
     name: text("name").notNull(),
     slug: varchar("slug", { length: 64 }).notNull(),
     description: text("description"),
+    type: varchar("type", { length: 64 }).notNull().default("web"), // e.g. web, mobile, backend
+    url: text("url"),
     userId: uuid("user_id").references(() => user.uuid, {
       onDelete: "cascade",
     }),

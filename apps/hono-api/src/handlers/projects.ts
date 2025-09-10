@@ -1,14 +1,14 @@
 import { Hono } from "hono";
 import { db } from "../db/index.js";
 import {
+  analyticsEvents,
   projectApiKeys,
   projectMembers,
   projects,
   teams,
 } from "../db/schema.js";
 import { user } from "../db/auth-schema.js";
-import { eq, and, isNull } from "drizzle-orm";
-import { nanoid } from "nanoid";
+import { eq, and, isNull, count } from "drizzle-orm";
 import { createProjectSchema, isValidUUID } from "@/lib/zod.js";
 import { slugifyProjectName } from "../lib/slugify.js";
 import { generateApiKeys, getPaginationParams } from "../lib/utils.js";
@@ -20,6 +20,7 @@ import {
 } from "../helpers/projects.js";
 import type { AuthType } from "../lib/auth.js";
 import { getWeeklyProjectAggregate } from "../helpers/project-analytics.js";
+import { vi } from "zod/v4/locales";
 
 const projectRoutes = new Hono<{ Variables: AuthType }>();
 
@@ -71,11 +72,12 @@ projectRoutes.post("/new", async (c) => {
     const [project] = await db
       .insert(projects)
       .values({
-        uuid: nanoid(),
         userId: currentUser.uuid,
         name,
         slug: finalSlug,
         description,
+        url: parsed.data.url,
+        type: parsed.data.type,
       })
       .returning();
 
@@ -109,7 +111,7 @@ projectRoutes.post("/new", async (c) => {
 
   const [project] = await db
     .insert(projects)
-    .values({ uuid: nanoid(), teamId, name, slug: finalSlug, description })
+    .values({ teamId, name, slug: finalSlug, description })
     .returning();
 
   await db.insert(projectMembers).values({
@@ -200,10 +202,30 @@ projectRoutes.get("/", async (c) => {
 
     const paginatedProjects = allProjects.slice(offset, offset + limit);
 
+    const visitorCounts = await db
+      .select({
+        projectId: analyticsEvents.projectId,
+        total: count(),
+      })
+      .from(analyticsEvents)
+      .groupBy(analyticsEvents.projectId);
+
+    const status = "active"; // fixed status for now
+
+    const countsMap = Object.fromEntries(
+      visitorCounts.map((r) => [r.projectId, r.total])
+    );
+
+    const projectsWithCounts = paginatedProjects.map((p) => ({
+      ...p,
+      visitors: countsMap[p.uuid] ?? 0,
+      status,
+    }));
+
     return c.json({
       success: true,
       message: "Projects fetched successfully",
-      data: { projects: paginatedProjects },
+      data: { projects: projectsWithCounts },
       pagination: { page, limit, total: allProjects.length },
     });
   } catch (err: any) {

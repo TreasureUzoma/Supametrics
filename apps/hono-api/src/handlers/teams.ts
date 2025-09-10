@@ -1,7 +1,6 @@
 import { Hono } from "hono";
 import { db } from "../db/index.js";
 import { teams, teamMembers } from "../db/schema.js";
-import { nanoid } from "nanoid";
 import { user } from "../db/auth-schema.js";
 import { eq } from "drizzle-orm";
 import { getUserOrNull } from "../helpers/projects.js";
@@ -20,7 +19,10 @@ teamRoutes.get("/", async (c) => {
 
   return c.json({
     success: true,
-    teams: results.map((r) => ({ ...r.team, role: r.role })),
+    data: {
+      teams: results.map((r) => ({ ...r.team, role: r.role })),
+    },
+    message: "Teams fetched successfully",
   });
 });
 
@@ -30,7 +32,15 @@ teamRoutes.post("/", async (c) => {
 
   // Validate authentication
   if (!currentUser?.uuid) {
-    return c.json({ error: "Unauthorized" }, 401);
+    return c.json(
+      {
+        error: "Unauthorized",
+        data: null,
+        success: false,
+        message: "User is not authenticated",
+      },
+      401
+    );
   }
 
   // Fetch subscription type fresh from DB
@@ -41,11 +51,27 @@ teamRoutes.post("/", async (c) => {
     .limit(1);
 
   if (!dbUser) {
-    return c.json({ error: "User not found" }, 404);
+    return c.json(
+      {
+        error: "User not found",
+        data: null,
+        success: false,
+        message: "User not found",
+      },
+      404
+    );
   }
 
   if (dbUser.subscriptionType === "free") {
-    return c.json({ error: "Upgrade to Pro to create teams" }, 403);
+    return c.json(
+      {
+        error: "Upgrade to Pro to create teams",
+        data: null,
+        success: false,
+        message: "Upgrade to Pro to create teams",
+      },
+      403
+    );
   }
 
   const { name } = await c.req.json();
@@ -54,7 +80,6 @@ teamRoutes.post("/", async (c) => {
   const [team] = await db
     .insert(teams)
     .values({
-      uuid: nanoid(),
       name,
       slug,
       ownerId: currentUser.uuid,

@@ -37,8 +37,8 @@ export const createProjectSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
   teamId: z.string().optional(),
-  userId: z.string().optional(),
-  website: z.string().min(4).max(40).optional(),
+  url: z.url(),
+  type: z.literal(["web", "mobile", "backend"]),
 });
 
 export const createNewTeamSchema = z.object({

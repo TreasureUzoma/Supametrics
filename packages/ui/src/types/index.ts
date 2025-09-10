@@ -10,3 +10,87 @@ export type Response<T = any> = {
     pageSize: number;
   };
 };
+
+export interface Team {
+  uuid: string;
+  name: string;
+  logo: {
+    src: string;
+    alt: string;
+  };
+  subscriptionType: "free" | "pro" | "enterprise";
+  isPersonal: boolean; // true if it's the user's personal workspace
+}
+
+export interface Project {
+  id: number;
+  uuid: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  type: "web" | "mobile" | "backend";
+  url: string;
+  userId: string | null;
+  teamId: string | null;
+  createdAt: string; // ISO timestamp
+  updatedAt: string; // ISO timestamp
+  role: "owner" | "admin" | "editor" | "viewer";
+  status: "active" | "archived" | "deleted";
+  visitors: number;
+}
+
+export interface Team {
+  uuid: string;
+  name: string;
+  logo: {
+    src: string;
+    alt: string;
+  };
+  subscriptionType: "free" | "pro" | "enterprise";
+  isPersonal: boolean;
+}
+export interface User {
+  uuid: string;
+  email: string;
+  name: string;
+  avatar: string;
+  subscriptionType: "free" | "pro" | "enterprise";
+  createdAt: string; // ISO timestamp
+  updatedAt: string; // ISO timestamp
+  teams: TeamMembership[]; // <-- fix
+}
+
+export interface TeamMembership {
+  team: RawTeam; // raw backend team object
+  role: "owner" | "member";
+}
+
+export interface RawTeam {
+  uuid: string;
+  name: string;
+  slug: string;
+  ownerId: string;
+  createdAt: string;
+}
+
+export interface Team {
+  uuid: string;
+  name: string;
+  logo: {
+    src: string;
+    alt: string;
+  };
+  subscriptionType: "free" | "pro" | "enterprise";
+  isPersonal: boolean;
+  role: "owner" | "member";
+}
+
+export type Timerange =
+  | "10secs"
+  | "5mins"
+  | "today"
+  | "yesterday"
+  | "thisweek"
+  | "thismonth"
+  | "thisyear"
+  | "last3years";

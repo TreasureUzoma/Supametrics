@@ -31,9 +31,7 @@ import {
 import { useLogout } from "@/hooks/use-logout";
 import Link from "next/link";
 
-export function NavUser({
-  user,
-}: {
+interface NavUserProps {
   user: {
     name: string;
     email: string;
@@ -41,7 +39,9 @@ export function NavUser({
     subscriptionType?: string;
   };
   isLoading: boolean;
-}) {
+}
+
+export function NavUser({ user }: NavUserProps) {
   const { isMobile } = useSidebar();
   const logout = useLogout();
 
@@ -85,7 +85,7 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              {user.subscriptionType == "free" && (
+              {user.subscriptionType === "free" && (
                 <Link href="/settings/upgrade">
                   <DropdownMenuItem>
                     <Sparkles />

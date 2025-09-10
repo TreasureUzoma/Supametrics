@@ -4,7 +4,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { useQuery } from "@tanstack/react-query";
 import axiosFetch from "@repo/ui/lib/axios";
-import { Response } from "@repo/ui/types";
+import { Response, User } from "@repo/ui/types";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useEffect } from "react";
@@ -16,8 +16,8 @@ async function fetchSession() {
 }
 
 interface SessionState {
-  user: any | null;
-  setUser: (user: any | null) => void;
+  user: User | null;
+  setUser: (user: User | null) => void;
   clearUser: () => void;
 }
 
@@ -51,7 +51,10 @@ export function useSession() {
 
   useEffect(() => {
     if (query.isError) {
-      if ((query.error as any).response?.status === 401) {
+      if (
+        query.error instanceof Error &&
+        query.error.message === "Unauthorized"
+      ) {
         clearUser();
         toast.error("Your session has expired. Please log in again.");
         router.push("/login");

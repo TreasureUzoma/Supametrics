@@ -26,3 +26,15 @@ export function timeAgo(isoString: string): string {
   if (months < 12) return `${months} month${months !== 1 ? "s" : ""} ago`;
   return `${years} year${years !== 1 ? "s" : ""} ago`;
 }
+export const cleanUrl = (url: string): string => {
+  try {
+    const parsed = new URL(url);
+    let result = parsed.host + parsed.pathname;
+    if (result.endsWith("/")) {
+      result = result.slice(0, -1);
+    }
+    return result;
+  } catch {
+    return url;
+  }
+};

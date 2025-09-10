@@ -9,6 +9,11 @@ const nextConfig: NextConfig = {
         hostname: "avatar.vercel.sh",
         pathname: "/*",
       },
+      {
+        protocol: "https",
+        hostname: "www.google.com",
+        pathname: "/s2/favicons",
+      },
     ],
   },
 };

@@ -22,65 +22,49 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 import Logo from "@repo/ui/components/ui/logo";
-import { Skeleton } from "@repo/ui/components/ui/skeleton";
 
 export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   const { user, isLoading } = useSession();
 
   const personalWorkspace = {
-    id: "personal", // fixed id
+    uuid: "personal",
     name: "My Workspace",
     logo: {
       src: `https://avatar.vercel.sh/${user?.email}`,
       alt: "My Workspace",
     },
-    subscriptionType: user?.subscriptionType,
+    subscriptionType: user?.subscriptionType ?? "free",
     isPersonal: true,
   };
 
-  // map user teams (skip if isPersonal)
   const mappedTeams =
-    user?.teams
-      ?.filter((team: any) => !team.isPersonal)
-      .map((team: any) => ({
+    user?.teams?.map((t) => {
+      const team = t.team;
+      return {
         uuid: team.uuid,
         name: team.name,
         logo: {
           src: `https://avatar.vercel.sh/${team.uuid}`,
           alt: team.name,
         },
-        subscriptionType: team.subscriptionType ?? "Free",
+        subscriptionType: user.subscriptionType ?? "free",
+        role: t.role,
         isPersonal: false,
-      })) ?? [];
+      };
+    }) ?? [];
 
   const data = {
     user: {
-      name: user?.name ?? <Skeleton />,
-      email: user?.email ?? "loading@example.com",
+      name: user?.name ?? "--",
+      email: user?.email ?? "--",
       avatar: `https://avatar.vercel.sh/${user?.email ?? "placeholder"}`,
     },
     teams: [personalWorkspace, ...mappedTeams],
     navLinks: [
-      {
-        title: "Dashboard",
-        url: "/dashboard",
-        icon: LayoutDashboard,
-      },
-      {
-        title: "Activity",
-        url: "/activity",
-        icon: Activity,
-      },
-      {
-        title: "AI",
-        url: "/ai",
-        icon: Sparkle,
-      },
-      {
-        title: "Support",
-        url: "/contact",
-        icon: LifeBuoy,
-      },
+      { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+      { title: "Activity", url: "/activity", icon: Activity },
+      { title: "AI", url: "/ai", icon: Sparkle },
+      { title: "Support", url: "/contact", icon: LifeBuoy },
     ],
     navMain: [
       {
@@ -134,6 +118,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
       <SidebarFooter>
         <NavUser user={data.user} isLoading={isLoading} />
       </SidebarFooter>
+
       <SidebarRail />
     </Sidebar>
   );
