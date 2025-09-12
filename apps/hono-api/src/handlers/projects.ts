@@ -19,8 +19,6 @@ import {
   isOwnerOrAdmin,
 } from "../helpers/projects.js";
 import type { AuthType } from "../lib/auth.js";
-import { getWeeklyProjectAggregate } from "../helpers/project-analytics.js";
-import { vi } from "zod/v4/locales";
 
 const projectRoutes = new Hono<{ Variables: AuthType }>();
 
@@ -85,6 +83,11 @@ projectRoutes.post("/new", async (c) => {
     await db
       .insert(projectApiKeys)
       .values({ projectId: project.uuid, publicKey, secretKey });
+    await db.insert(projectMembers).values({
+      projectId: project.uuid,
+      userId: currentUser.uuid,
+      role: "admin",
+    });
 
     return c.json({ success: true, project });
   }

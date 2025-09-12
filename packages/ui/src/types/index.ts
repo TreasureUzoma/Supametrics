@@ -94,3 +94,30 @@ export type Timerange =
   | "thismonth"
   | "thisyear"
   | "last3years";
+
+export type AnalyticsSummaryItem = {
+  [key: string]: number | string;
+};
+
+export interface Analytics {
+  name: string;
+  url: string;
+  projectId: number;
+  filter: string;
+  osSummary: AnalyticsSummaryItem[];
+  deviceSummary: AnalyticsSummaryItem[];
+  browserSummary: AnalyticsSummaryItem[];
+  topPaths: AnalyticsSummaryItem[];
+  topReferrers: AnalyticsSummaryItem[];
+  topHostnames: AnalyticsSummaryItem[];
+  topUtmSources: AnalyticsSummaryItem[];
+  totalVisits: number;
+  uniqueVisitors: number;
+  totalVisitsChange: string | null;
+  uniqueVisitorsChange: string | null;
+  frequency: Array<{
+    time: string;
+    totalVisits: number;
+    uniqueVisitors: number;
+  }>;
+}

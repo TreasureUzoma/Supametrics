@@ -14,7 +14,7 @@ import {
   SelectItem,
   SelectValue,
 } from "@repo/ui/components/ui/select";
-import { cleanUrl } from "@repo/ui/lib/utils";
+import { cleanUrl, cn } from "@repo/ui/lib/utils";
 import type { Timerange } from "@repo/ui/types";
 import { LockIcon } from "lucide-react";
 import Image from "next/image";
@@ -67,15 +67,29 @@ export const Header = ({
           <div className="text-sm text-neutral-500 flex items-center gap-2.5">
             <div className="truncate flex items-center gap-2">
               <Image
-                src={`https://www.google.com/s2/favicons?sz=64&domain_url="${url || "https://treasure.brimble.app"}"`}
-                className="w-3 h-3"
+                src={`https://icons.duckduckgo.com/ip3/${cleanUrl(
+                  url || "https://supametrics.vercel.app"
+                )}.ico`}
+                className="w-3 h-3 rounded-sm"
                 alt="Favicon"
                 width={16}
                 height={16}
               />
+
               {cleanUrl(url || "https://example.com")}
             </div>
-            |<div>{onlineVisitors ?? 0} online</div>
+            |
+            <div className="flex items-center gap-2">
+              <div
+                className={cn(
+                  "w-2 h-2 rounded-full animate-pulse",
+                  onlineVisitors && onlineVisitors > 0
+                    ? "bg-green-500"
+                    : "bg-gray-400"
+                )}
+              />
+              {onlineVisitors ?? 0} online
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-3.5">

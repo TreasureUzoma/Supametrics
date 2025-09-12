@@ -1,10 +1,11 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { db } from "../db/index.js";
-import { analyticsEvents } from "../db/schema.js";
+import { analyticsEvents, projects } from "../db/schema.js";
 import { sql, eq, gte, lte, and, desc } from "drizzle-orm";
 import { getUserOrNull, getProjectMembership } from "../helpers/projects.js";
 import type { AuthType } from "../lib/auth.js";
+import { isValidUUID } from "@/lib/zod.js";
 
 const analyticsRoutes = new Hono<{ Variables: AuthType }>();
 
@@ -19,11 +20,10 @@ const allowedFilters = [
   "last3years",
 ];
 
-// --- date helpers ---
+// date helpers
 const startOfDay = (d: Date) =>
   new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const endOfDay = (d: Date) =>
-
   new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
 const startOfWeek = (d: Date) => {
   const day = d.getDay() || 7; // Sunday=0 -> 7
@@ -47,7 +47,7 @@ const endOfYear = (d: Date) =>
 const startOfYearNYearsAgo = (d: Date, n: number) =>
   new Date(d.getFullYear() - n, 0, 1);
 
-// --- time range helpers ---
+// time range helpers
 function getTimeRange(filter: string) {
   const now = new Date(); // fresh per request
   let startTime: Date, endTime: Date | undefined, bucketFormat: string;
@@ -161,8 +161,7 @@ function calcPercentChange(current: number, previous: number): number | null {
   return ((current - previous) / Math.abs(previous)) * 100;
 }
 
-// --- Aggregations helper ---
-// NOTE: we build selection objects dynamically and use `sql` for counts
+// Aggregations helper
 async function getCommonAggregations(conditions: any[]) {
   const commonSelect = (groupByCols: any[]) =>
     db
@@ -229,7 +228,7 @@ async function getCommonAggregations(conditions: any[]) {
   };
 }
 
-// --- Main fetcher ---
+// Main fetcher
 async function fetchAnalytics(
   c: Context<{ Variables: AuthType }>,
   eventName?: string
@@ -237,15 +236,48 @@ async function fetchAnalytics(
   const currentUser = await getUserOrNull(c);
   const projectId = c.req.param("id");
 
-  if (!currentUser?.uuid) return c.json({ error: "Unauthorized" }, 401);
+  if (!isValidUUID.safeParse(projectId).success) {
+    return c.json(
+      {
+        error: "Invalid project ID",
+        data: null,
+        success: false,
+        message: "The provided project ID is not a valid UUID",
+      },
+      400
+    );
+  }
 
-  if (!(await getProjectMembership(projectId, currentUser.uuid))) {
-    return c.json({ error: "Forbidden" }, 403);
+  const project = await db
+    .select()
+    .from(projects)
+    .where(eq(projects.uuid, projectId))
+    .limit(1)
+    .then((r) => r[0]);
+
+  if (!(await getProjectMembership(projectId, currentUser!.uuid))) {
+    return c.json(
+      {
+        error: "Forbidden",
+        data: null,
+        message: "You do not have access to this project",
+        success: false,
+      },
+      403
+    );
   }
 
   const filter = (c.req.query("filter") || "today").toLowerCase();
   if (!allowedFilters.includes(filter)) {
-    return c.json({ error: "Invalid filter" }, 400);
+    return c.json(
+      {
+        error: "Invalid filter",
+        data: null,
+        message: "The specified filter is not valid",
+        success: false,
+      },
+      400
+    );
   }
 
   const { startTime, endTime, bucketFormat } = getTimeRange(filter);
@@ -282,51 +314,48 @@ async function fetchAnalytics(
     totalVisits: Number(previousTotalsRes[0]?.totalVisits || 0),
     uniqueVisitors: Number(previousTotalsRes[0]?.uniqueVisitors || 0),
   };
-  
-    const formatChange = (val: number | null) =>
-  val === null ? null : `${val > 0 ? "+" : ""}${val.toFixed(1)}%`;
 
-const totalVisitsChange = formatChange(calcPercentChange(
-  commonData.totalVisits,
-  previousTotals.totalVisits
-));
-const uniqueVisitorsChange = formatChange(calcPercentChange(
-  commonData.uniqueVisitors,
-  previousTotals.uniqueVisitors
-));
+  const formatChange = (val: number | null) =>
+    val === null ? null : `${val > 0 ? "+" : ""}${val.toFixed(1)}%`;
 
+  const totalVisitsChange = formatChange(
+    calcPercentChange(commonData.totalVisits, previousTotals.totalVisits)
+  );
+  const uniqueVisitorsChange = formatChange(
+    calcPercentChange(commonData.uniqueVisitors, previousTotals.uniqueVisitors)
+  );
 
   // frequency: group by time buckets using date_trunc
   // Note: bucketFormat is a string like 'hour', 'day', 'month'
   const frequency = await db
     .select({
-      time: sql`date_trunc(${sql.raw(String(bucketFormat))}, ${analyticsEvents.timestamp})`,
+      time: sql.raw(`date_trunc('${bucketFormat}', "timestamp")`),
       totalVisits: sql`count(*)`,
       uniqueVisitors: sql`count(distinct ${analyticsEvents.visitorId})`,
     })
     .from(analyticsEvents)
     .where(and(...conditionsCurrent))
-    .groupBy(
-      sql`date_trunc(${sql.raw(String(bucketFormat))}, ${analyticsEvents.timestamp})`
-    )
-    .orderBy(
-      sql`date_trunc(${sql.raw(String(bucketFormat))}, ${analyticsEvents.timestamp})`
-    );
+    .groupBy(sql.raw(`date_trunc('${bucketFormat}', "timestamp")`))
+    .orderBy(sql.raw(`date_trunc('${bucketFormat}', "timestamp")`));
 
   return c.json({
     success: true,
-    filter,
-    ...(eventName ? { eventName } : {}),
-    ...commonData,
-    totalVisitsChange,
-    uniqueVisitorsChange,
-    frequency,
+    message: "Analytics fetched successfully",
+    data: {
+      url: project.url,
+      name: project.name,
+      filter,
+      ...(eventName ? { eventName } : {}),
+      ...commonData,
+      totalVisitsChange,
+      uniqueVisitorsChange,
+      frequency,
+    },
   });
 }
 
-// --- Routes ---
-analyticsRoutes.get("/:id/analytics", (c) => fetchAnalytics(c));
-analyticsRoutes.get("/:id/analytics/:eventName", (c) =>
+analyticsRoutes.get("/:id", (c) => fetchAnalytics(c));
+analyticsRoutes.get("/:id/:eventName", (c) =>
   fetchAnalytics(c, c.req.param("eventName"))
 );
 

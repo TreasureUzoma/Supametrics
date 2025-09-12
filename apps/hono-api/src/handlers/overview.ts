@@ -21,7 +21,10 @@ overviewRoute.get("/", async (c) => {
     const teamIdParam = c.req.query("teamId");
 
     if (teamIdParam && !isValidUUID.safeParse(teamIdParam).success) {
-      return c.json({ success: false, message: "Invalid teamId UUID" }, 400);
+      return c.json(
+        { success: false, message: "Invalid teamId UUID", data: null },
+        400
+      );
     }
 
     let condition;
