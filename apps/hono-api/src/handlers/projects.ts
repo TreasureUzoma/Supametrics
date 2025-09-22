@@ -8,7 +8,7 @@ import {
   teams,
 } from "../db/schema.js";
 import { user } from "../db/auth-schema.js";
-import { eq, and, isNull, count } from "drizzle-orm";
+import { eq, and, isNull, count, or } from "drizzle-orm";
 import { createProjectSchema, isValidUUID } from "@/lib/zod.js";
 import { slugifyProjectName } from "../lib/slugify.js";
 import { generateApiKeys, getPaginationParams } from "../lib/utils.js";
@@ -171,21 +171,34 @@ projectRoutes.get("/", async (c) => {
         )
         .then((rows) => rows.map((r) => ({ ...r.project, role: r.role })));
     } else {
-      // Fetch personal projects and all memberships
-      const owned = await db
-        .select()
+      // Fetch projects once, left-joining projectMembers for the current user (if any).
+      const rows = await db
+        .select({
+          project: projects,
+          memberRole: projectMembers.role,
+        })
         .from(projects)
-        .where(eq(projects.userId, userId));
-      const memberOf = await db
-        .select({ project: projects, role: projectMembers.role })
-        .from(projectMembers)
-        .innerJoin(projects, eq(projectMembers.projectId, projects.uuid))
-        .where(eq(projectMembers.userId, userId));
+        .leftJoin(
+          projectMembers,
+          and(
+            eq(projectMembers.projectId, projects.uuid),
+            eq(projectMembers.userId, userId) // only join the current user's membership row
+          )
+        )
+        .where(
+          or(
+            eq(projects.userId, userId), // owner
+            eq(projectMembers.userId, userId) // member (joined row)
+          )
+        );
 
-      allProjects = [
-        ...owned.map((p: any) => ({ ...p, role: "owner" as const })),
-        ...memberOf.map((m: any) => ({ ...m.project, role: m.role })),
-      ];
+      allProjects = rows.map((r: any) => ({
+        ...r.project,
+        role:
+          r.project.userId === userId
+            ? ("owner" as const)
+            : (r.memberRole ?? "member"),
+      }));
     }
 
     if (search) {

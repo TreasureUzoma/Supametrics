@@ -12,12 +12,15 @@ export default function ProjectAnalyticsPage({
 
   const { data, isLoading, error } = useAnalytics(projectId.id);
 
-  if (isLoading) return <div>Loading...</div>;
   if (error) return <div>Error loading analytics</div>;
 
   return (
     <div>
-      <Header title={`${data?.name} Analytics`} url={data?.url} />
+      <Header
+        title={`${data?.name} Analytics`}
+        url={data?.url}
+        loading={isLoading}
+      />
       <pre>{JSON.stringify(data, null, 2)}</pre>
     </div>
   );

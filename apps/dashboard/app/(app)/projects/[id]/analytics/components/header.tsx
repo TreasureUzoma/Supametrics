@@ -1,6 +1,7 @@
 "use client";
 
 import { useSession } from "@/store/use-session";
+import { useAnalyticsStore } from "@/store/use-analytics-store";
 import { Button } from "@repo/ui/components/ui/button";
 import {
   Popover,
@@ -14,30 +15,27 @@ import {
   SelectItem,
   SelectValue,
 } from "@repo/ui/components/ui/select";
+import { Skeleton } from "@repo/ui/components/ui/skeleton";
 import { cleanUrl, cn } from "@repo/ui/lib/utils";
 import type { Timerange } from "@repo/ui/types";
 import { LockIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import React, { useState, useEffect } from "react";
 
 interface HeaderProps {
   title: string;
-  value?: Timerange;
-  onChange?: (value: Timerange) => void;
   url?: string;
   onlineVisitors?: number;
+  loading: boolean;
 }
 
 export const Header = ({
   title,
-  value,
-  onChange,
+  loading,
   url,
   onlineVisitors,
 }: HeaderProps) => {
   const filters: { timerange: Timerange; label: string }[] = [
-    { timerange: "10secs", label: "Last 10 seconds" },
     { timerange: "5mins", label: "Last 5 minutes" },
     { timerange: "today", label: "Today" },
     { timerange: "yesterday", label: "Yesterday" },
@@ -47,36 +45,38 @@ export const Header = ({
     { timerange: "last3years", label: "Last 3 years" },
   ];
 
-  const [selected, setSelected] = useState<Timerange>(value ?? "today");
-
-  useEffect(() => {
-    if (value) setSelected(value);
-  }, [value]);
-
-  const handleChange = (val: Timerange) => {
-    setSelected(val);
-    onChange?.(val);
-  };
-
   const { user } = useSession();
+
+  const { filter, setFilter } = useAnalyticsStore();
+
   return (
     <div>
       <header className="border-b border-border py-7 md:py-8 flex_between px-5">
         <div className="flex flex-col gap-1">
-          <h2 className="text-2xl font-medium">{title}</h2>
+          <h2 className="text-2xl font-medium">
+            {loading ? <Skeleton className="h-6 w-48" /> : title}
+          </h2>
           <div className="text-sm text-neutral-500 flex items-center gap-2.5">
             <div className="truncate flex items-center gap-2">
-              <Image
-                src={`https://icons.duckduckgo.com/ip3/${cleanUrl(
-                  url || "https://supametrics.vercel.app"
-                )}.ico`}
-                className="w-3 h-3 rounded-sm"
-                alt="Favicon"
-                width={16}
-                height={16}
-              />
+              {loading ? (
+                <Skeleton className="h-4 w-32" />
+              ) : (
+                <Image
+                  src={`https://icons.duckduckgo.com/ip3/${cleanUrl(
+                    url || "https://supametrics.vercel.app"
+                  )}.ico`}
+                  className="w-3 h-3 rounded-sm"
+                  width={16}
+                  height={16}
+                  alt="Favicon"
+                />
+              )}
 
-              {cleanUrl(url || "https://example.com")}
+              {loading ? (
+                <Skeleton className="h-4 w-32" />
+              ) : (
+                cleanUrl(url || "https://example.com")
+              )}
             </div>
             |
             <div className="flex items-center gap-2">
@@ -88,12 +88,16 @@ export const Header = ({
                     : "bg-gray-400"
                 )}
               />
-              {onlineVisitors ?? 0} online
+              {loading ? (
+                <Skeleton className="h-4 w-32" />
+              ) : (
+                `${onlineVisitors ?? 0} visitors`
+              )}
             </div>
           </div>
         </div>
         <div className="flex items-center gap-3.5">
-          <Select value={selected} onValueChange={handleChange}>
+          <Select value={filter} onValueChange={setFilter}>
             <SelectTrigger style={{ width: "180px" }}>
               <SelectValue placeholder="Select timerange" />
             </SelectTrigger>
