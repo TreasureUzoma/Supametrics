@@ -1,3 +1,5 @@
+// deprecated for now
+
 # Supametrics Design Guide
 
 This guide defines the **official design language** of Supametrics — a developer-focused analytics platform with a minimal, premium interface inspired by Vercel, A1.gallery, and Linear.
@@ -10,25 +12,28 @@ It focuses on **clean typography**, **dark-first aesthetics**, and a sharp, mode
 
 ### Primary Font
 
-* **Font Family**: [`Switzer`](https://www.fontshare.com/fonts/switzer) (via [Fontshare CDN](https://www.fontshare.com))
-* **License**: Open-source, free for commercial use
+- **Font Family**: [`Switzer`](https://www.fontshare.com/fonts/switzer) (via [Fontshare CDN](https://www.fontshare.com))
+- **License**: Open-source, free for commercial use
 
 ```html
-<link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=switzer@100,200,300,400,500,600,700,800,900&display=swap" />
+<link
+  rel="stylesheet"
+  href="https://api.fontshare.com/v2/css?f[]=switzer@100,200,300,400,500,600,700,800,900&display=swap"
+/>
 ```
 
 ### Font Weights Used
 
-* `100` — Thin (for subtle labels)
-* `300` — Light (captions, helper text)
-* `400` — Regular (default body)
-* `500` — Medium (button text)
-* `700` — Bold (headings)
-* `900` — Black (hero statements, graph titles)
+- `100` — Thin (for subtle labels)
+- `300` — Light (captions, helper text)
+- `400` — Regular (default body)
+- `500` — Medium (button text)
+- `700` — Bold (headings)
+- `900` — Black (hero statements, graph titles)
 
 ### Font Pairing
 
-* No monospace needed unless showing code — fallback to `IBM Plex Mono` if required.
+- No monospace needed unless showing code — fallback to `IBM Plex Mono` if required.
 
 ### Tailwind Setup (optional)
 
@@ -66,15 +71,15 @@ Use Radix primitives if extending to component libraries.
 
 ## Spacing & Layout
 
-* **Grid**: 8px base unit
-* **Max Widths**:
+- **Grid**: 8px base unit
+- **Max Widths**:
+  - Content: `720px`
+  - Dashboard: `1200px`
 
-  * Content: `720px`
-  * Dashboard: `1200px`
-* **Container Padding**: `24px`
-* **Card Padding**: `16px`
-* **Rounded Corners**: `24px` or `rounded-2xl`
-* **Shadow**: Soft shadow only: `shadow-[0_4px_24px_rgba(0,0,0,0.3)]`
+- **Container Padding**: `24px`
+- **Card Padding**: `16px`
+- **Rounded Corners**: `24px` or `rounded-2xl`
+- **Shadow**: Soft shadow only: `shadow-[0_4px_24px_rgba(0,0,0,0.3)]`
 
 ---
 
@@ -82,11 +87,11 @@ Use Radix primitives if extending to component libraries.
 
 ### Use:
 
-* **Tailwind CSS** (utility-first design)
-* **shadcn/ui** (based on Radix UI)
-* **Framer Motion** (smooth animations)
-* **Lucide.dev** (icons)
-* `next-themes` for light/dark toggle support
+- **Tailwind CSS** (utility-first design)
+- **shadcn/ui** (based on Radix UI)
+- **Framer Motion** (smooth animations)
+- **Lucide.dev** (icons)
+- `next-themes` for light/dark toggle support
 
 Install shadcn:
 
@@ -107,19 +112,19 @@ npx shadcn@latest init
 | **Gray**   | Secondary/neutral actions like "Cancel"                                             |
 | **Accent** | Use purple `#9D4EDD` for key highlights, especially in modals or graph interactions |
 
-* All buttons are rounded-xl by default
-* **Hover** state: use `bg-[#1a1a1a]` or a slight tint of the base color
+- All buttons are rounded-xl by default
+- **Hover** state: use `bg-[#1a1a1a]` or a slight tint of the base color
 
 ### Cards
 
-* Background: `#111111`
-* Rounded, soft shadow
-* Spacing inside: `p-6`
+- Background: `#111111`
+- Rounded, soft shadow
+- Spacing inside: `p-6`
 
 ### Charts / Graphs
 
-* Color: **Purple `#9D4EDD`** as the primary data line
-* Gradients on area charts
+- Color: **Purple `#9D4EDD`** as the primary data line
+- Gradients on area charts
 
 ---
 
@@ -127,10 +132,10 @@ npx shadcn@latest init
 
 Use **Framer Motion** for:
 
-* Page transitions (fade, slide-in)
-* Tooltip reveals
-* Modal open/close
-* Chart hover effects
+- Page transitions (fade, slide-in)
+- Tooltip reveals
+- Modal open/close
+- Chart hover effects
 
 Keep it subtle — avoid jarring movement.
 
@@ -144,14 +149,15 @@ Use [**Lucide.dev**](https://lucide.dev) — clean, minimal, customizable. Integ
 
 ## Developer Tooling
 
-| Tool              | Purpose                       |
-| ----------------- | ----------------------------- |
-| **Next.js**       | React framework               |
-| **Tailwind CSS**  | Utility-first styling         |
-| **shadcn/ui**     | Component styling & theming   |
-| **Framer Motion** | Animation                     |
-| **Lucide**        | Icon set                      |
-| **next-themes**   | Light/dark mode               
+| Tool              | Purpose                     |
+| ----------------- | --------------------------- |
+| **Next.js**       | React framework             |
+| **Tailwind CSS**  | Utility-first styling       |
+| **shadcn/ui**     | Component styling & theming |
+| **Framer Motion** | Animation                   |
+| **Lucide**        | Icon set                    |
+| **next-themes**   | Light/dark mode             |
+
 ---
 
 ## Summary

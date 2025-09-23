@@ -1,3 +1,5 @@
+import { ReactNode } from "react";
+
 // eslint-disable-next-line
 export type Response<T = any> = {
   success: boolean;
@@ -104,6 +106,7 @@ export interface Analytics {
   url: string;
   projectId: number;
   filter: string;
+  onlineVisitors: number;
   osSummary: AnalyticsSummaryItem[];
   deviceSummary: AnalyticsSummaryItem[];
   browserSummary: AnalyticsSummaryItem[];
@@ -120,4 +123,15 @@ export interface Analytics {
     totalVisits: number;
     uniqueVisitors: number;
   }>;
+}
+
+export interface StatCardProps {
+  title: string;
+  value: number;
+  change?: number | null;
+  loading: boolean;
+}
+
+export interface MetricsGridProps {
+  children: ReactNode;
 }

@@ -27,6 +27,7 @@ interface HeaderProps {
   url?: string;
   onlineVisitors?: number;
   loading: boolean;
+  id: string;
 }
 
 export const Header = ({
@@ -34,6 +35,7 @@ export const Header = ({
   loading,
   url,
   onlineVisitors,
+  id,
 }: HeaderProps) => {
   const filters: { timerange: Timerange; label: string }[] = [
     { timerange: "5mins", label: "Last 5 minutes" },
@@ -91,7 +93,7 @@ export const Header = ({
               {loading ? (
                 <Skeleton className="h-4 w-32" />
               ) : (
-                `${onlineVisitors ?? 0} visitors`
+                `${onlineVisitors ?? 0} online`
               )}
             </div>
           </div>
@@ -123,7 +125,9 @@ export const Header = ({
             <PopoverTrigger>
               <Button variant="outline">&#x22EF;</Button>
             </PopoverTrigger>
-            <PopoverContent className="font-normal">
+            <PopoverContent className="font-normal flex space-y-4 flex-col">
+              <Link href={`projects/${id}/reports`}>View Reports</Link>
+
               {user?.subscriptionType === "free" && (
                 <Link href="/settings/billing">Upgrade to Pro</Link>
               )}

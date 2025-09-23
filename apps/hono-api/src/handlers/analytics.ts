@@ -161,6 +161,24 @@ function calcPercentChange(current: number, previous: number): number | null {
   return ((current - previous) / Math.abs(previous)) * 100;
 }
 
+async function getOnlineVisitors(projectId: string) {
+  const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000); // 2 minutes ago
+
+  const result = await db
+    .select({
+      onlineVisitors: sql`count(distinct ${analyticsEvents.visitorId})`,
+    })
+    .from(analyticsEvents)
+    .where(
+      and(
+        eq(analyticsEvents.projectId, projectId),
+        gte(analyticsEvents.timestamp, twoMinutesAgo)
+      )
+    );
+
+  return Number(result[0]?.onlineVisitors || 0);
+}
+
 // Aggregations helper
 async function getCommonAggregations(conditions: any[]) {
   const commonSelect = (groupByCols: any[]) =>
@@ -267,6 +285,8 @@ async function fetchAnalytics(
     );
   }
 
+  const onlineVisitors = await getOnlineVisitors(projectId);
+
   const filter = (c.req.query("filter") || "today").toLowerCase();
   if (!allowedFilters.includes(filter)) {
     return c.json(
@@ -343,6 +363,7 @@ async function fetchAnalytics(
     message: "Analytics fetched successfully",
     data: {
       url: project.url,
+      onlineVisitors,
       name: project.name,
       filter,
       ...(eventName ? { eventName } : {}),
