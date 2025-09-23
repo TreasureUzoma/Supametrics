@@ -67,7 +67,7 @@ export const SummaryCard = ({
           </div>
 
           {/* Bars */}
-          <ul className="mt-4">
+          <ul className="mt-4 min-h-30">
             {visibleData.map((item) => (
               <li key={item.label}>{renderBar(item)}</li>
             ))}

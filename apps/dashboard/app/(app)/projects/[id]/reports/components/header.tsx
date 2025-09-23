@@ -1,31 +1,21 @@
 "use client";
 
 import { useSession } from "@/store/use-session";
-import { useAnalyticsStore } from "@/store/use-analytics-store";
 import { Button } from "@repo/ui/components/ui/button";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@repo/ui/components/ui/popover";
-import {
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue,
-} from "@repo/ui/components/ui/select";
 import { Skeleton } from "@repo/ui/components/ui/skeleton";
-import { cleanUrl, cn } from "@repo/ui/lib/utils";
-import type { Timerange } from "@repo/ui/types";
-import { LockIcon } from "lucide-react";
+import { cleanUrl } from "@repo/ui/lib/utils";
 import Image from "next/image";
 import Link from "next/link";
 
 interface HeaderProps {
   title: string;
   url?: string;
-  onlineVisitors?: number;
+  totalReports?: number;
   loading: boolean;
   id: string;
 }
@@ -34,22 +24,10 @@ export const Header = ({
   title,
   loading,
   url,
-  onlineVisitors,
+  totalReports,
   id,
 }: HeaderProps) => {
-  const filters: { timerange: Timerange; label: string }[] = [
-    { timerange: "5mins", label: "Last 5 minutes" },
-    { timerange: "today", label: "Today" },
-    { timerange: "yesterday", label: "Yesterday" },
-    { timerange: "thisweek", label: "This week" },
-    { timerange: "thismonth", label: "This month" },
-    { timerange: "thisyear", label: "This year" },
-    { timerange: "last3years", label: "Last 3 years" },
-  ];
-
   const { user } = useSession();
-
-  const { filter, setFilter } = useAnalyticsStore();
 
   return (
     <div>
@@ -82,55 +60,25 @@ export const Header = ({
             </div>
             |
             <div className="flex items-center gap-2">
-              <div
-                className={cn(
-                  "w-2 h-2 rounded-full animate-pulse",
-                  onlineVisitors && onlineVisitors > 0
-                    ? "bg-green-500"
-                    : "bg-gray-400"
-                )}
-              />
               {loading ? (
                 <Skeleton className="h-4 w-32" />
               ) : (
-                `${onlineVisitors ?? 0} online`
+                `${totalReports ?? 0} online`
               )}
             </div>
           </div>
         </div>
         <div className="flex items-center gap-3.5">
-          <Select value={filter} onValueChange={setFilter}>
-            <SelectTrigger style={{ width: "180px" }}>
-              <SelectValue placeholder="Select timerange" />
-            </SelectTrigger>
-            <SelectContent>
-              {filters.map((f) => {
-                const isLocked = ["thisyear", "last3years"].includes(
-                  f.timerange
-                );
-                return (
-                  <SelectItem
-                    key={f.timerange}
-                    value={f.timerange}
-                    disabled={isLocked}
-                  >
-                    {f.label}
-                    {isLocked && <LockIcon />}
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
           <Popover>
             <PopoverTrigger>
               <Button variant="outline">&#x22EF;</Button>
             </PopoverTrigger>
             <PopoverContent className="font-normal flex space-y-1 flex-col">
               <Link
-                href={`/projects/${id}/reports`}
+                href={`/projects/${id}/analytics`}
                 className="hover:bg-accent p-1"
               >
-                View Reports
+                View Analytics
               </Link>
 
               {user?.subscriptionType === "free" && (

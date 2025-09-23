@@ -135,3 +135,17 @@ export interface StatCardProps {
 export interface MetricsGridProps {
   children: ReactNode;
 }
+
+export interface Report {
+  id: number;
+  webs;
+  uuid: string;
+  projectId: string;
+  name: string;
+  description: string | null;
+  type: string;
+  data: any;
+  createdBy: string | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+}

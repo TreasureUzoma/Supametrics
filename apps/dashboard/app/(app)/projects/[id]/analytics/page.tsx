@@ -8,6 +8,7 @@ import { FrequencyLineChart } from "./components/frequency-line-chart";
 import { SummaryCard } from "./components/summary-card";
 import { Grid } from "./components/grid";
 import { cleanUrl } from "@repo/ui/lib/utils";
+import { Error } from "@/components/error";
 
 export default function ProjectAnalyticsPage({
   params,
@@ -17,7 +18,7 @@ export default function ProjectAnalyticsPage({
   const projectId = use(params);
   const { data, isLoading, error } = useAnalytics(projectId.id);
 
-  if (error) return <div>Error loading analytics</div>;
+  if (error) return <Error description="Failed to fetch analytics" />;
 
   return (
     <div>

@@ -43,7 +43,8 @@ reportRoutes.get("/:id/reports", async (c) => {
 
   return c.json({
     success: true,
-    reports: reportsList,
+    data: { reports: reportsList },
+    message: "Fetched Reports successfully",
     pagination: {
       page,
       limit,

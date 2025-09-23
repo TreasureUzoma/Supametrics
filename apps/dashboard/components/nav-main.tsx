@@ -54,8 +54,11 @@ export function NavMain({
             const isActive = pathname === item.url;
             return (
               <Link href={item.url} key={item.title}>
-                <SidebarMenuItem data-active={isActive}>
-                  <SidebarMenuButton tooltip={item.title}>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    data-active={isActive}
+                    tooltip={item.title}
+                  >
                     {item.icon && <item.icon />}
                     <span>{item.title}</span>
                   </SidebarMenuButton>
