@@ -136,15 +136,33 @@ export interface MetricsGridProps {
   children: ReactNode;
 }
 
+export interface ReportsApiResponse {
+  success: boolean;
+  data: {
+    name: string;
+    url: string;
+    totalReports: number;
+    reports: Report[];
+  };
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+  message: string;
+}
+
 export interface Report {
   id: number;
-  webs;
+  totalReports: number;
+  url: string;
   uuid: string;
   projectId: string;
   name: string;
   description: string | null;
   type: string;
-  data: any;
+  data: [];
   createdBy: string | null;
   createdAt: Date | null;
   updatedAt: Date | null;

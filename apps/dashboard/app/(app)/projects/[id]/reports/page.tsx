@@ -1,3 +1,5 @@
+"use client";
+
 import { Error } from "@/components/error";
 import { Header } from "./components/header";
 import { useReports } from "@/hooks/use-reports";
@@ -10,16 +12,18 @@ export default function ReportsPage({
 }) {
   const projectId = use(params);
   const { data, isLoading, error } = useReports(projectId.id);
-  if (error) return <Error description="Failed to fetch analytics" />;
+  console.log(data);
+  if (error) return <Error description="Failed to fetch reports" />;
   return (
     <div>
       <Header
-        title={`${data?.name} Analytics`}
-        url={data?.url}
+        title={`${data?.data?.name} Reports`}
+        url={data?.data?.url || ""}
         loading={isLoading}
         id={projectId.id}
-        totalReports={data?.totalReports}
+        totalReports={data?.data?.totalReports || 0}
       />
+      <div></div>
     </div>
   );
 }

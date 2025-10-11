@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { db } from "../db/index.js";
-import { reports } from "../db/schema.js";
+import { projects, reports } from "../db/schema.js";
 import { eq, count } from "drizzle-orm";
 import { getPaginationParams } from "../helpers/pagination.js";
 import { getUserOrNull, getProjectMembership } from "../helpers/projects.js";
@@ -8,8 +8,8 @@ import type { AuthType } from "../lib/auth.js";
 
 const reportRoutes = new Hono<{ Variables: AuthType }>();
 
-// GET /:id/reports
-reportRoutes.get("/:id/reports", async (c) => {
+// GET /:id
+reportRoutes.get("/:id", async (c) => {
   const currentUser = await getUserOrNull(c);
   const projectId = c.req.param("id")!;
 
@@ -18,11 +18,12 @@ reportRoutes.get("/:id/reports", async (c) => {
   }
 
   // Check if user is a member of this project
-  if (!(await getProjectMembership(projectId, currentUser.uuid))) {
+  const isMember = await getProjectMembership(projectId, currentUser.uuid);
+  if (!isMember) {
     return c.json({ error: "Forbidden" }, 403);
   }
 
-  // Get pagination params from helper
+  // Get pagination params
   const { page, limit, offset } = getPaginationParams(c);
 
   // Fetch reports for this project
@@ -33,17 +34,39 @@ reportRoutes.get("/:id/reports", async (c) => {
     .limit(limit)
     .offset(offset);
 
-  // Get total count
-  const [{ count: totalCount }] = await db
+  // Get total count of reports for this project
+  const [{ count: totalReports }] = await db
     .select({ count: count(reports.id) })
     .from(reports)
     .where(eq(reports.projectId, projectId));
 
-  const total = Number(totalCount || 0);
+  // Fetch project info
+  const [project] = await db
+    .select({ url: projects.url, name: projects.name })
+    .from(projects)
+    .where(eq(projects.uuid, projectId));
+
+  if (!project) {
+    return c.json(
+      { error: "Project not found", data: null, message: "Project not found" },
+      404
+    );
+  }
+
+  const reportsWithTotal = reportsList.map((report) => ({
+    ...report,
+  }));
+
+  const total = Number(totalReports || 0);
 
   return c.json({
     success: true,
-    data: { reports: reportsList },
+    data: {
+      reports: reportsWithTotal,
+      totalReports: Number(totalReports || 0),
+      url: project.url,
+      name: project.name,
+    },
     message: "Fetched Reports successfully",
     pagination: {
       page,

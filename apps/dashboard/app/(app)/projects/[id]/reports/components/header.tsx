@@ -63,7 +63,7 @@ export const Header = ({
               {loading ? (
                 <Skeleton className="h-4 w-32" />
               ) : (
-                `${totalReports ?? 0} online`
+                `${totalReports ?? 0} reports`
               )}
             </div>
           </div>
