@@ -167,3 +167,15 @@ export interface Report {
   createdAt: Date | null;
   updatedAt: Date | null;
 }
+
+export type ProjectApiKey = {
+  publicKey: string;
+  secretKey: string;
+  revoked: boolean;
+};
+
+export interface ProjectId {
+  project: Project;
+  role: "admin" | "editor" | "viewer";
+  apiKey: ProjectApiKey;
+}

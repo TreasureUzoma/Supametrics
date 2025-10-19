@@ -38,7 +38,7 @@ v1.use(
       "X-Custom-Header",
       "Upgrade-Insecure-Requests",
     ],
-    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowMethods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
   })
 );

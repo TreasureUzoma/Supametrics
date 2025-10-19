@@ -15,18 +15,11 @@ import Link from "next/link";
 interface HeaderProps {
   title: string;
   url?: string;
-  totalReports?: number;
   loading: boolean;
   id: string;
 }
 
-export const Header = ({
-  title,
-  loading,
-  url,
-  totalReports,
-  id,
-}: HeaderProps) => {
+export const Header = ({ title, loading, url, id }: HeaderProps) => {
   const { user } = useSession();
 
   return (
@@ -56,14 +49,6 @@ export const Header = ({
                 <Skeleton className="h-4 w-32" />
               ) : (
                 cleanUrl(url || "https://example.com")
-              )}
-            </div>
-            |
-            <div className="flex items-center gap-2">
-              {loading ? (
-                <Skeleton className="h-4 w-32" />
-              ) : (
-                `${totalReports ?? 0} reports`
               )}
             </div>
           </div>

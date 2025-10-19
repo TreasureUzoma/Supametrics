@@ -4,6 +4,7 @@ import { Error } from "@/components/error";
 import { Header } from "./components/header";
 import { useReports } from "@/hooks/use-reports";
 import { use } from "react";
+import { ReportsCards } from "./components/reports-cards";
 
 export default function ReportsPage({
   params,
@@ -23,7 +24,9 @@ export default function ReportsPage({
         id={projectId.id}
         totalReports={data?.data?.totalReports || 0}
       />
-      <div></div>
+      <div>
+        <ReportsCards />
+      </div>
     </div>
   );
 }

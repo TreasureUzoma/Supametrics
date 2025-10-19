@@ -1,5 +1,10 @@
+import { CommingSoon } from "@/components/comming-soon";
 import React from "react";
 
 export const ReportsCards = () => {
-  return <div>ReportsCards</div>;
+  return (
+    <div>
+      <CommingSoon />
+    </div>
+  );
 };

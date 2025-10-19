@@ -122,7 +122,7 @@ export const Header = ({
             </SelectContent>
           </Select>
           <Popover>
-            <PopoverTrigger>
+            <PopoverTrigger asChild>
               <Button variant="outline">&#x22EF;</Button>
             </PopoverTrigger>
             <PopoverContent className="font-normal flex space-y-1 flex-col">
@@ -131,6 +131,12 @@ export const Header = ({
                 className="hover:bg-accent p-1"
               >
                 View Reports
+              </Link>
+              <Link
+                href={`/projects/${id}/settings`}
+                className="hover:bg-accent p-1"
+              >
+                Project Settings
               </Link>
 
               {user?.subscriptionType === "free" && (

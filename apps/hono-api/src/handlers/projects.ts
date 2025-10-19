@@ -22,11 +22,9 @@ import type { AuthType } from "../lib/auth.js";
 
 const projectRoutes = new Hono<{ Variables: AuthType }>();
 
-// create new project
 projectRoutes.post("/new", async (c) => {
   const currentUser = await getUserOrNull(c);
 
-  // validate authentication
   if (!currentUser?.uuid) {
     return c.json({ error: "Unauthorized" }, 401);
   }
@@ -56,6 +54,8 @@ projectRoutes.post("/new", async (c) => {
     .where(eq(user.uuid, currentUser.uuid));
   if (!userInfo) return c.json({ error: "User not found" }, 404);
 
+  const cleanedDescription = description === "" ? null : description;
+
   if (!teamId) {
     const personalProjects = await db
       .select()
@@ -73,7 +73,7 @@ projectRoutes.post("/new", async (c) => {
         userId: currentUser.uuid,
         name,
         slug: finalSlug,
-        description,
+        description: cleanedDescription,
         url: parsed.data.url,
         type: parsed.data.type,
       })
@@ -114,7 +114,14 @@ projectRoutes.post("/new", async (c) => {
 
   const [project] = await db
     .insert(projects)
-    .values({ teamId, name, slug: finalSlug, description })
+    .values({
+      teamId,
+      name,
+      slug: finalSlug,
+      description: cleanedDescription,
+      url: parsed.data.url,
+      type: parsed.data.type,
+    })
     .returning();
 
   await db.insert(projectMembers).values({
@@ -131,7 +138,6 @@ projectRoutes.post("/new", async (c) => {
   return c.json({ success: true, project });
 });
 
-// get all projects
 projectRoutes.get("/", async (c) => {
   try {
     const currentUser = await getUserOrNull(c);
@@ -140,9 +146,9 @@ projectRoutes.get("/", async (c) => {
     const { page, limit, offset } = getPaginationParams(c);
 
     const search = c.req.query("search")?.toLowerCase() || "";
-    const type = c.req.query("type"); // 'personal' | 'team' | undefined
+    const type = c.req.query("type");
     const teamId = c.req.query("teamId");
-    const sort = c.req.query("sort") || "newest"; // 'newest' or 'oldest'
+    const sort = c.req.query("sort") || "newest";
 
     let allProjects: any[] = [];
 
@@ -171,7 +177,6 @@ projectRoutes.get("/", async (c) => {
         )
         .then((rows) => rows.map((r) => ({ ...r.project, role: r.role })));
     } else {
-      // Fetch projects once, left-joining projectMembers for the current user (if any).
       const rows = await db
         .select({
           project: projects,
@@ -182,14 +187,11 @@ projectRoutes.get("/", async (c) => {
           projectMembers,
           and(
             eq(projectMembers.projectId, projects.uuid),
-            eq(projectMembers.userId, userId) // only join the current user's membership row
+            eq(projectMembers.userId, userId)
           )
         )
         .where(
-          or(
-            eq(projects.userId, userId), // owner
-            eq(projectMembers.userId, userId) // member (joined row)
-          )
+          or(eq(projects.userId, userId), eq(projectMembers.userId, userId))
         );
 
       allProjects = rows.map((r: any) => ({
@@ -226,7 +228,7 @@ projectRoutes.get("/", async (c) => {
       .from(analyticsEvents)
       .groupBy(analyticsEvents.projectId);
 
-    const status = "active"; // fixed status for now
+    const status = "active";
 
     const countsMap = Object.fromEntries(
       visitorCounts.map((r) => [r.projectId, r.total])
@@ -257,7 +259,6 @@ projectRoutes.get("/", async (c) => {
   }
 });
 
-// Rotate key
 projectRoutes.post("/:id/rotate-key", async (c) => {
   const currentUser = await getUserOrNull(c);
   const projectId = c.req.param("id");
@@ -284,7 +285,6 @@ projectRoutes.post("/:id/rotate-key", async (c) => {
   return c.json({ success: true, apiKey: keys });
 });
 
-// Delete project
 projectRoutes.delete("/:id", async (c) => {
   const currentUser = await getUserOrNull(c);
   const projectId = c.req.param("id");
@@ -311,13 +311,12 @@ projectRoutes.delete("/:id", async (c) => {
   return c.json({ success: true });
 });
 
-// read overview
 projectRoutes.get("/:id", async (c) => {
   const currentUser = await getUserOrNull(c);
   const projectId = c.req.param("id");
   const project = await getProjectOrNull(projectId);
 
-  let role: "owner" | "admin" | "editor" | "viewer" = "viewer";
+  let role: "admin" | "editor" | "viewer" = "viewer";
 
   if (!currentUser?.uuid) {
     return c.json({ error: "Unauthorized" }, 401);
@@ -339,7 +338,7 @@ projectRoutes.get("/:id", async (c) => {
     role = membership.role;
   }
 
-  const apiKeys =
+  const [apiKey] =
     role === "admin" || role === "editor"
       ? await db
           .select({
@@ -348,36 +347,103 @@ projectRoutes.get("/:id", async (c) => {
             revoked: projectApiKeys.revoked,
           })
           .from(projectApiKeys)
-          .where(eq(projectApiKeys.projectId, project.uuid))
-      : undefined;
+          .where(
+            and(
+              eq(projectApiKeys.projectId, project.uuid),
+              eq(projectApiKeys.revoked, false)
+            )
+          )
+          .limit(1)
+      : [undefined];
 
-  return c.json({ success: true, project, role, apiKeys });
+  return c.json({
+    success: true,
+    data: { project, role, apiKey },
+    message: "Fetched project successfuly",
+  });
 });
 
-// Invite to project
 projectRoutes.post("/:id/invite", async (c) => {
   const currentUser = await getUserOrNull(c);
   const projectId = c.req.param("id");
-  const { email, role } = await c.req.json();
-
-  if (!["admin", "editor", "viewer"].includes(role))
-    return c.json({ error: "Invalid role" }, 400);
 
   if (!currentUser?.uuid) {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
+  const { email, role } = await c.req.json();
+
+  if (!["admin", "editor", "viewer"].includes(role))
+    return c.json({ error: "Invalid role" }, 400);
+
   const membership = await getProjectMembership(projectId, currentUser.uuid);
   if (!membership || membership.role !== "admin")
     return c.json({ error: "Only admins can invite" }, 403);
 
-  return c.json({
-    success: true,
-    message: `Invite to ${email} with role ${role} created (not sent)`,
-  });
+  const [targetUser] = await db
+    .select()
+    .from(user)
+    .where(eq(user.email, email.toLowerCase()));
+
+  if (targetUser) {
+    // 2. Check if user is already a member
+    const existingMember = await getProjectMembership(
+      projectId,
+      targetUser.uuid
+    );
+
+    if (existingMember) {
+      // User is already a member: just update their role if it's changing
+      if (existingMember.role !== role) {
+        await db
+          .update(projectMembers)
+          .set({ role })
+          .where(
+            and(
+              eq(projectMembers.projectId, projectId),
+              eq(projectMembers.userId, targetUser.uuid)
+            )
+          );
+        return c.json({
+          success: true,
+          message: `${targetUser.email} is already a member, role updated to ${role}.`,
+          status: "role_updated",
+        });
+      }
+
+      // Role is the same
+      return c.json({
+        success: true,
+        message: `${targetUser.email} is already a member with the role ${role}.`,
+        status: "already_member",
+      });
+    }
+
+    // User is registered but not a member: add them
+    await db.insert(projectMembers).values({
+      projectId: projectId,
+      userId: targetUser.uuid,
+      role: role,
+    });
+
+    return c.json({
+      success: true,
+      message: `${targetUser.email} successfully added as ${role}.`,
+      status: "added_member",
+    });
+  } else {
+    // User is not registered: simulate sending a welcome/registration email
+
+    // todo: send an invite record into a projectInvites table
+    // and trigger an email here.
+    return c.json({
+      success: true,
+      message: `User ${email} is not registered. An invitation email has been sent to register and join the project as ${role}.`,
+      status: "invite_sent",
+    });
+  }
 });
 
-// Edit member role
 projectRoutes.patch("/:id/role", async (c) => {
   const currentUser = await getUserOrNull(c);
   const projectId = c.req.param("id");
@@ -386,7 +452,6 @@ projectRoutes.patch("/:id/role", async (c) => {
   if (!["admin", "editor", "viewer"].includes(newRole))
     return c.json({ error: "Invalid role" }, 400);
 
-  // validate authentication
   if (!currentUser?.uuid) {
     return c.json({ error: "Unauthorized" }, 401);
   }
@@ -408,48 +473,56 @@ projectRoutes.patch("/:id/role", async (c) => {
   return c.json({ success: true });
 });
 
-// patch (update)
 projectRoutes.patch("/:id", async (c) => {
-  const currentUser = await getUserOrNull(c);
-  const projectId = c.req.param("id");
-  const { name, description } = await c.req.json();
+  try {
+    const currentUser = await getUserOrNull(c);
+    const projectId = c.req.param("id");
+    const body = await c.req.json().catch(() => ({}));
+    const { name, description, url, type } = body;
+    const currentDate = new Date();
 
-  const project = await getProjectOrNull(projectId);
+    const project = await getProjectOrNull(projectId);
 
-  // Validate authentication
-  if (!currentUser?.uuid) {
-    return c.json({ error: "Unauthorized" }, 401);
+    if (!currentUser?.uuid) return c.json({ error: "Unauthorized" }, 401);
+    if (!project) return c.json({ error: "Project not found" }, 404);
+
+    const membership = project.teamId
+      ? await getProjectMembership(projectId, currentUser.uuid)
+      : null;
+
+    const isAdminOrOwner =
+      project.userId === currentUser.uuid || membership?.role === "admin";
+
+    if (!isAdminOrOwner)
+      return c.json({ error: "Only admins can update project" }, 403);
+
+    let updatePayload: Record<string, any> = { updatedAt: currentDate };
+
+    if (name !== undefined) updatePayload.name = name;
+    if (url !== undefined) updatePayload.url = url;
+    if (type !== undefined) updatePayload.type = type;
+
+    if (description !== undefined) {
+      updatePayload.description = description === "" ? null : description;
+    }
+
+    await db
+      .update(projects)
+      .set(updatePayload)
+      .where(eq(projects.uuid, projectId));
+
+    return c.json({ success: true });
+  } catch (err) {
+    console.error("PATCH /project/:id failed:", err);
+    return c.json({ error: "Internal server error" }, 500);
   }
-
-  if (!project) {
-    return c.json({ error: "Project cannot be null" }, 403);
-  }
-
-  const isAdminOrOwner =
-    project.userId === currentUser.uuid ||
-    (project.teamId &&
-      (await getProjectMembership(projectId, currentUser.uuid))?.role ===
-        "admin");
-
-  if (!isAdminOrOwner) {
-    return c.json({ error: "Only admins can update project" }, 403);
-  }
-
-  await db
-    .update(projects)
-    .set({ ...(name && { name }), ...(description && { description }) })
-    .where(eq(projects.uuid, projectId));
-
-  return c.json({ success: true });
 });
 
-// get project members
 projectRoutes.get("/:id/members", async (c) => {
   const currentUser = await getUserOrNull(c);
   const projectId = c.req.param("id");
   const project = await getProjectOrNull(projectId);
 
-  // validate authentication
   if (!currentUser?.uuid) {
     return c.json({ error: "Unauthorized" }, 401);
   }
@@ -458,7 +531,6 @@ projectRoutes.get("/:id/members", async (c) => {
     return c.json({ error: "Project cannot be null" }, 403);
   }
 
-  // Ensure current user is part of the project
   if (project.userId !== currentUser.uuid) {
     const membership = await getProjectMembership(projectId, currentUser.uuid);
     if (!membership) return c.json({ error: "Forbidden" }, 403);
@@ -466,27 +538,67 @@ projectRoutes.get("/:id/members", async (c) => {
 
   const members = await db
     .select({
-      userId: projectMembers.userId,
+      id: projectMembers.userId,
       role: projectMembers.role,
+      email: user.email,
+      name: user.name,
     })
     .from(projectMembers)
+    .innerJoin(user, eq(projectMembers.userId, user.uuid))
     .where(eq(projectMembers.projectId, projectId));
-
-  if (project.userId) {
-    members.push({
-      userId: project.userId,
-      role: "admin",
-    });
-  }
 
   return c.json({ success: true, members });
 });
 
-// leave project
+projectRoutes.delete("/:id/members/:userId", async (c) => {
+  const currentUser = await getUserOrNull(c);
+  const projectId = c.req.param("id");
+  const targetUserId = c.req.param("userId");
+  const project = await getProjectOrNull(projectId);
+
+  if (!currentUser?.uuid) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  if (!project) {
+    return c.json({ error: "Project not found" }, 404);
+  }
+
+  // Admin check
+  const membership = await getProjectMembership(projectId, currentUser.uuid);
+  if (!membership || membership.role !== "admin")
+    return c.json({ error: "Only admins can remove members" }, 403);
+
+  // Prevent removing the project creator (owner)
+  if (project.userId === targetUserId) {
+    return c.json({ error: "Cannot remove the project creator" }, 403);
+  }
+
+  // Perform removal
+  const result = await db
+    .delete(projectMembers)
+    .where(
+      and(
+        eq(projectMembers.projectId, projectId),
+        eq(projectMembers.userId, targetUserId)
+      )
+    )
+    .returning();
+
+  if (result.length === 0) {
+    // This case should ideally not happen if the frontend knows who is a member
+    return c.json(
+      { error: "Member not found in project", success: false, data: null },
+      404
+    );
+  }
+
+  return c.json({ success: true, message: "Member successfully removed" });
+});
+
 projectRoutes.delete("/:id/leave", async (c) => {
   const currentUser = await getUserOrNull(c);
 
-  // Validate authentication
   if (!currentUser?.uuid) {
     return c.json({ error: "Unauthorized" }, 401);
   }
