@@ -108,6 +108,8 @@ export interface Analytics {
   filter: string;
   onlineVisitors: number;
   osSummary: AnalyticsSummaryItem[];
+  topCountries: AnalyticsSummaryItem[];
+  topCities: AnalyticsSummaryItem[];
   deviceSummary: AnalyticsSummaryItem[];
   browserSummary: AnalyticsSummaryItem[];
   topPaths: AnalyticsSummaryItem[];

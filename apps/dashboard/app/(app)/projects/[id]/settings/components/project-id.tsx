@@ -16,7 +16,7 @@ export const ProjectIdCopy = ({ id }: { id: string | undefined }) => {
       <CardHeader>
         <CardTitle>Project ID</CardTitle>
         <CardDescription>
-          Used to identify your Project on the Dashboard.
+          Used to identify your Project on the Dashboard or via API.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex justify-start gap-4 items-center">

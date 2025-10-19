@@ -105,6 +105,29 @@ export default function ProjectAnalyticsPage({
           />
         </Grid>
 
+        <Grid columns={2} gap="gap-2" gapSm="gap-4" gapMd="gap-6" gapLg="gap-8">
+          <SummaryCard
+            title="Top Countries"
+            loading={isLoading}
+            data={
+              data?.topCountries?.map((o) => ({
+                label: String(o.country ?? "Unknown"),
+                count: Number(o.count ?? 0),
+              })) ?? []
+            }
+          />
+          <SummaryCard
+            title="Top Cities"
+            loading={isLoading}
+            data={
+              data?.topCities?.map((r) => ({
+                label: cleanUrl(String(r.city ?? "Unknown")),
+                count: Number(r.count ?? 0),
+              })) ?? []
+            }
+          />
+        </Grid>
+
         <Grid columns={3} gap="gap-2" gapSm="gap-4" gapMd="gap-6" gapLg="gap-8">
           <SummaryCard
             title="Top Hostnames"

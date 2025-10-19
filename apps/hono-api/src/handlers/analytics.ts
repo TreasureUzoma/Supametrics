@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import { db } from "../db/index.js";
 import { analyticsEvents, projects } from "../db/schema.js";
-import { sql, eq, gte, lte, and, desc } from "drizzle-orm";
+import { sql, eq, gte, lte, and, desc, isNotNull } from "drizzle-orm";
 import { getUserOrNull, getProjectMembership } from "../helpers/projects.js";
 import type { AuthType } from "../lib/auth.js";
 import { isValidUUID } from "@/lib/zod.js";
@@ -195,7 +195,7 @@ async function getCommonAggregations(conditions: any[]) {
         ),
       })
       .from(analyticsEvents)
-      .where(and(...conditions))
+      .where(and(...conditions, isNotNull(groupByCols[0])))
       .groupBy(...groupByCols)
       .orderBy(desc(sql`count(*)`));
 
@@ -208,6 +208,8 @@ async function getCommonAggregations(conditions: any[]) {
     topReferrers,
     topHostnames,
     topUtmSources,
+    topCountries,
+    topCities,
     totalVisitsRes,
     uniqueVisitorsRes,
   ] = await Promise.all([
@@ -219,6 +221,8 @@ async function getCommonAggregations(conditions: any[]) {
     commonSelect([analyticsEvents.referrer]).limit(15),
     commonSelect([analyticsEvents.hostname]).limit(10),
     commonSelect([analyticsEvents.utmSource]).limit(5),
+    commonSelect([analyticsEvents.country]).limit(10),
+    commonSelect([analyticsEvents.city]).limit(10),
     db
       .select({
         totalVisits: sql`count(*)`,
@@ -241,6 +245,8 @@ async function getCommonAggregations(conditions: any[]) {
     topReferrers,
     topHostnames,
     topUtmSources,
+    topCountries,
+    topCities,
     totalVisits: Number(totalVisitsRes[0]?.totalVisits || 0),
     uniqueVisitors: Number(uniqueVisitorsRes[0]?.uniqueVisitors || 0),
   };
@@ -343,10 +349,9 @@ async function fetchAnalytics(
   );
   const uniqueVisitorsChange = formatChange(
     calcPercentChange(commonData.uniqueVisitors, previousTotals.uniqueVisitors)
-  );
-
-  // frequency: group by time buckets using date_trunc
+  ); // frequency: group by time buckets using date_trunc
   // Note: bucketFormat is a string like 'hour', 'day', 'month'
+
   const frequency = await db
     .select({
       time: sql.raw(`date_trunc('${bucketFormat}', "timestamp")`),
@@ -357,6 +362,41 @@ async function fetchAnalytics(
     .where(and(...conditionsCurrent))
     .groupBy(sql.raw(`date_trunc('${bucketFormat}', "timestamp")`))
     .orderBy(sql.raw(`date_trunc('${bucketFormat}', "timestamp")`));
+
+  let formatOptions: Intl.DateTimeFormatOptions;
+
+  switch (bucketFormat) {
+    case "second":
+      formatOptions = {
+        hour: "numeric",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+      };
+      break;
+    case "minute":
+      formatOptions = { hour: "numeric", minute: "2-digit", hour12: true };
+      break;
+    case "hour":
+      formatOptions = { hour: "numeric", hour12: true };
+      break;
+    case "day":
+      formatOptions = { month: "short", day: "numeric" };
+      break;
+    case "month":
+      formatOptions = { month: "short", year: "2-digit" };
+      break;
+    default:
+      formatOptions = { month: "short", day: "numeric" };
+  }
+
+  const formatter = new Intl.DateTimeFormat("en-US", formatOptions);
+
+  const formattedFrequency = frequency.map((item) => ({
+    time: formatter.format(new Date(item.time as string | Date)),
+    totalVisits: Number(item.totalVisits),
+    uniqueVisitors: Number(item.uniqueVisitors),
+  }));
 
   return c.json({
     success: true,
@@ -370,7 +410,7 @@ async function fetchAnalytics(
       ...commonData,
       totalVisitsChange,
       uniqueVisitorsChange,
-      frequency,
+      frequency: formattedFrequency,
     },
   });
 }

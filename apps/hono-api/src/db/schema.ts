@@ -146,6 +146,9 @@ export const analyticsEvents = pgTable("analytics_events", {
   eventName: varchar("event_name", { length: 128 }), // e.g. "cta_clicked"
   eventData: jsonb("event_data"),
 
+  country: varchar("country", { length: 64 }),
+  city: varchar("city", { length: 128 }),
+
   browserName: varchar("browser_name", { length: 64 }),
   browserVersion: varchar("browser_version", { length: 64 }),
   osName: varchar("os_name", { length: 64 }),

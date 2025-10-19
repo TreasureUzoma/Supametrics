@@ -74,7 +74,7 @@ func VerifyPrivateKey(c *fiber.Ctx) error {
 		})
 	}
 
-	// --- Project-specific rate limiting ---
+	// Project-specific rate limiting 
 	projectRateKey := fmt.Sprintf("ratelimit:project:%s:%s", ctx.ProjectID, userHash)
 	projectReqCount, _ := utils.IncrementCache("ratelimit", projectRateKey, time.Minute)
 

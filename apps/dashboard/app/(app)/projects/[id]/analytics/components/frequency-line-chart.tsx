@@ -1,9 +1,7 @@
 "use client";
 
-/* @ts-nocheck */
 import * as React from "react";
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
-
 import { Card, CardContent } from "@repo/ui/components/ui/card";
 import {
   ChartConfig,
@@ -35,11 +33,6 @@ export function FrequencyLineChart({
   frequency,
   loading,
 }: FrequencyLineChartProps) {
-  const data = frequency.map((item) => ({
-    ...item,
-    time: new Date(item.time).toISOString(),
-  }));
-
   if (loading) return <Skeleton className="h-[40vh]" />;
 
   return (
@@ -49,7 +42,7 @@ export function FrequencyLineChart({
           config={chartConfig}
           className="aspect-auto h-[250px] w-full"
         >
-          <AreaChart data={data}>
+          <AreaChart data={frequency}>
             <defs>
               <linearGradient id="fillTotalVisits" x1="0" y1="0" x2="0" y2="1">
                 <stop
@@ -84,31 +77,20 @@ export function FrequencyLineChart({
             </defs>
 
             <CartesianGrid vertical={false} stroke="#eee" />
+
             <XAxis
               dataKey="time"
               tickLine={false}
               axisLine={false}
               tickMargin={8}
               minTickGap={20}
-              tickFormatter={(value) => {
-                const date = new Date(value);
-                return date.toLocaleTimeString("en-US", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                });
-              }}
             />
 
             <ChartTooltip
               cursor={false}
               content={
                 <ChartTooltipContent
-                  labelFormatter={(value) =>
-                    new Date(value).toLocaleTimeString("en-US", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })
-                  }
+                  labelFormatter={(value) => value}
                   indicator="dot"
                 />
               }
@@ -129,7 +111,7 @@ export function FrequencyLineChart({
               stackId="a"
             />
 
-            <ChartLegend content={<ChartLegendContent />} />
+            <ChartLegend content={<ChartLegendContent payload={[]} />} />
           </AreaChart>
         </ChartContainer>
       </CardContent>

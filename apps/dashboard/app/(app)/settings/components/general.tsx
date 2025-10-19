@@ -23,7 +23,7 @@ export const GeneralSettings = ({ name }: { name: string | undefined }) => {
 
   return (
     <div id="#general">
-      <h3 className="font-bold text-lg">General Settings</h3>
+      <h3 className="font-bold text-lg mb-1">General Settings</h3>
       <Card>
         <CardHeader>
           <CardTitle>Update Profle Details</CardTitle>

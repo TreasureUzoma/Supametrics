@@ -38,3 +38,12 @@ export const cleanUrl = (url: string): string => {
     return url;
   }
 };
+
+export function getFlagEmoji(countryCode: string): string {
+  if (!countryCode) return "🏳️";
+  const codePoints = countryCode
+    .toUpperCase()
+    .split("")
+    .map((char) => 127397 + char.charCodeAt(0));
+  return String.fromCodePoint(...codePoints);
+}

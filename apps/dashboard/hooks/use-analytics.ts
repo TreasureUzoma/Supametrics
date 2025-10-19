@@ -20,6 +20,11 @@ export const useAnalytics = (projectId: string) => {
         `analytics/${projectId}?${params.toString()}`
       );
       return res.data;
+
+      /* const res = await fetch("/api/analytics/id");
+      const json = await res.json();
+      console.log(json.data);
+      return json.data; */
     },
     enabled: !!projectId,
   });
