@@ -72,10 +72,10 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
         url: "/settings",
         icon: Settings2,
         items: [
-          { title: "General", url: "/settings/general" },
-          { title: "Team", url: "/settings/teams" },
-          { title: "Billing", url: "/settings/billing" },
-          { title: "Limits", url: "/settings/limits" },
+          { title: "General", url: "/settings#general" },
+          { title: "Team", url: "/settings#teams" },
+          { title: "Billing", url: "/settings#billing" },
+          { title: "Limits", url: "/settings#limits" },
         ],
       },
       {

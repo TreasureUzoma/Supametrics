@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Response } from "@repo/ui/types";
 import axiosFetch from "@repo/ui/lib/axios";
 import type { ZodIssue } from "zod";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 export type AuthMode = "login" | "signup" | "forgot" | "reset";
 
@@ -226,3 +227,22 @@ export function useAuth() {
     },
   };
 }
+
+export const useUpdateProfileName = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (name: string) => {
+      const { data: res } = await axiosFetch.patch("/profile", { name });
+      return res;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["session"] });
+      toast.success(data?.message || "Profile updated successfully");
+    },
+    onError: (err) => {
+      if (err instanceof Error) {
+        toast.error(err?.message || "Failed to update profile name");
+      }
+    },
+  });
+};

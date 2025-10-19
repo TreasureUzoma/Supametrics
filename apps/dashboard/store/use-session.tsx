@@ -17,7 +17,9 @@ async function fetchSession() {
 
 interface SessionState {
   user: User | null;
+  loading: boolean;
   setUser: (user: User | null) => void;
+  setLoading: (loading: boolean) => void;
   clearUser: () => void;
 }
 
@@ -25,7 +27,9 @@ export const useSessionStore = create<SessionState>()(
   persist(
     (set) => ({
       user: null,
+      loading: false,
       setUser: (user) => set({ user }),
+      setLoading: (loading) => set({ loading }),
       clearUser: () => set({ user: null }),
     }),
     { name: "session-storage" }
@@ -33,18 +37,26 @@ export const useSessionStore = create<SessionState>()(
 );
 
 export function useSession() {
-  const { user, setUser, clearUser } = useSessionStore();
+  const { user, setUser, clearUser, loading, setLoading } = useSessionStore();
   const router = useRouter();
 
   const query = useQuery({
     queryKey: ["session"],
-    queryFn: fetchSession,
+    queryFn: async () => {
+      setLoading(true);
+      try {
+        const data = await fetchSession();
+        return data;
+      } finally {
+        setLoading(false);
+      }
+    },
     retry: false,
     refetchOnWindowFocus: true,
   });
 
   useEffect(() => {
-    if (query.isSuccess) {
+    if (query.isSuccess && query.data?.user) {
       setUser(query.data.user);
     }
   }, [query.isSuccess, query.data, setUser]);
@@ -66,7 +78,7 @@ export function useSession() {
 
   return {
     user,
-    isLoading: query.isPending,
+    loading: loading || query.isPending,
     isError: query.isError,
     refetch: query.refetch,
     clearUser,

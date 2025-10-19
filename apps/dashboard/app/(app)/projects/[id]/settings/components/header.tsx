@@ -73,7 +73,7 @@ export const Header = ({ title, loading, url, id }: HeaderProps) => {
               </Link>
 
               {user?.subscriptionType === "free" && (
-                <Link href="/settings/billing" className="hover:bg-accent p-1">
+                <Link href="/settings#billing" className="hover:bg-accent p-1">
                   Upgrade to Pro
                 </Link>
               )}

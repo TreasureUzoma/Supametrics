@@ -36,7 +36,7 @@ export const notifications = [
     description:
       "Your trial period ends in 3 days. Upgrade to continue enjoying Supametrics.",
     isRead: false,
-    contentLink: "/setttings/billing",
+    contentLink: "/setttings#billing",
     time: "2025-09-07T16:35:00Z",
   },
 ];

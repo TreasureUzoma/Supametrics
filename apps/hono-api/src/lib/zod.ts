@@ -50,7 +50,7 @@ export const createNewTeamSchema = z.object({
 });
 
 export const updateProfileSchema = z.object({
-  name: z.string().min(4).max(100).optional(),
+  name: z.string().min(4).max(100),
   image: z.url().optional(), // deprecated
 });
 

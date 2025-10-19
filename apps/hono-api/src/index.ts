@@ -14,6 +14,7 @@ import teamRoutes from "./handlers/teams.js";
 import type { AuthType } from "./lib/auth.js";
 import authHandler from "@/handlers/auth.js";
 import sessionHandler from "./handlers/session.js";
+import profileRoute from "./handlers/profile.js";
 
 const app = new Hono<{ Variables: AuthType }>({});
 
@@ -56,6 +57,7 @@ v1.use("*", withAuth);
 
 // Session — 90 requests/hour
 v1.route("/session", sessionHandler.use(rateLimiter(60 * 60 * 1000, 90)));
+v1.route("/profile", profileRoute.use(rateLimiter(60 * 60 * 1000, 90)));
 
 // Projects — 100 requests/hour
 v1.route("/projects", projectRoutes.use(rateLimiter(60 * 60 * 1000, 100)));

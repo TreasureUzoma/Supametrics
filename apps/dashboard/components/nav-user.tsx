@@ -86,7 +86,7 @@ export function NavUser({ user }: NavUserProps) {
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               {user.subscriptionType === "free" && (
-                <Link href="/settings/upgrade">
+                <Link href="/settings#billing">
                   <DropdownMenuItem>
                     <Sparkles />
                     Upgrade to Pro
@@ -96,13 +96,13 @@ export function NavUser({ user }: NavUserProps) {
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <Link href="/settings/account">
+              <Link href="/settings#account">
                 <DropdownMenuItem>
                   <BadgeCheck />
                   Account
                 </DropdownMenuItem>
               </Link>
-              <Link href="/settings/notifications">
+              <Link href="/notifications">
                 <DropdownMenuItem>
                   <Bell />
                   Notifications

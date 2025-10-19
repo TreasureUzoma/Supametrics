@@ -1,12 +1,12 @@
-import { notifications } from "@/data/dummy";
-import { timeAgo } from "@repo/ui/lib/utils";
-import { ArrowRight } from "lucide-react";
-import Link from "next/link";
+// import { notifications } from "@/data/dummy";
+// import { timeAgo } from "@repo/ui/lib/utils";
+// import { ArrowRight } from "lucide-react";
+// import Link from "next/link";
 
 export const Notifications = () => {
   return (
-    <section className="flex flex-col mt-1">
-      {notifications && notifications.length > 1 ? (
+    <div className="flex flex-col mt-1">
+      {/*notifications && notifications.length > 1 ? (
         notifications.map((notification) => (
           <Link
             href={notification.contentLink ?? "#"}
@@ -32,8 +32,9 @@ export const Notifications = () => {
         ))
       ) : (
         <NoNotifications />
-      )}
-    </section>
+      )*/}
+      <NoNotifications />
+    </div>
   );
 };
 
