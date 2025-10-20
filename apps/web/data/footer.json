@@ -16,5 +16,8 @@
     { "name": "LinkedIn", "url": "https://linkedin.com/company/supametrics" },
     { "name": "YouTube", "url": "https://youtube.com/supametrics" },
     { "name": "Github", "url": "https://github.com/supametrics" }
+  ],
+  "Third Parties": [
+    { "name": "IP geolaction", "url": "https://lite.ip2location.com" }
   ]
 }

@@ -22,6 +22,8 @@ type AnalyticsEvent struct {
 	UTMCampaign    *string        `json:"utm_campaign,omitempty" db:"utm_campaign"`
 	UTMTerm        *string        `json:"utm_term,omitempty" db:"utm_term"`
 	UTMContent     *string        `json:"utm_content,omitempty" db:"utm_content"`
+	Country        *string        `json:"country" db:"country"`
+	City           *string        `json:"city" db:"city"`
 	EventType      string         `json:"event_type" db:"event_type"`
 	EventName      *string        `json:"event_name,omitempty" db:"event_name"`
 	EventData      map[string]any `json:"event_data,omitempty" db:"event_data"`

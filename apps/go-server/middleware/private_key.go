@@ -22,7 +22,6 @@ func VerifyPrivateKey(c *fiber.Ctx) error {
 		})
 	}
 
-	// --- Global rate limiting (defense against bots / key scanners) ---
 	ip := c.Get("X-Forwarded-For")
 	if ip == "" {
 		ip = c.IP()
@@ -38,7 +37,6 @@ func VerifyPrivateKey(c *fiber.Ctx) error {
 		})
 	}
 
-	// fetch project + user info from DB
 	query := `
 		SELECT 
 			p.uuid AS project_id,
@@ -74,7 +72,7 @@ func VerifyPrivateKey(c *fiber.Ctx) error {
 		})
 	}
 
-	// Project-specific rate limiting 
+	// Project-specific rate limiting
 	projectRateKey := fmt.Sprintf("ratelimit:project:%s:%s", ctx.ProjectID, userHash)
 	projectReqCount, _ := utils.IncrementCache("ratelimit", projectRateKey, time.Minute)
 

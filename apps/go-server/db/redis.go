@@ -32,3 +32,11 @@ func ConnectRedis() {
 
 	log.Println("Connected to Redis")
 }
+
+func CloseRedis() {
+	if Redis != nil {
+		if err := Redis.Close(); err != nil {
+			log.Printf("Error closing Redis connection: %v", err)
+		}
+	}
+}

@@ -31,9 +31,6 @@ func VerifyPublicKey(c *fiber.Ctx) error {
 	userAgent := c.Get("User-Agent")
 	userHash := utils.GetUserHash(ip, userAgent)
 
-	// --------------------------------------------------
-	// STEP 1: API key format validation
-	// --------------------------------------------------
 	if err := utils.ValidatePublicKeyFormat(publicKey); err != nil {
 		// track invalid attempts per client
 		invalidKey := fmt.Sprintf("invalidkey:%s", userHash)
@@ -52,9 +49,6 @@ func VerifyPublicKey(c *fiber.Ctx) error {
 		})
 	}
 
-	// --------------------------------------------------
-	// STEP 2: Look up API key in DB
-	// --------------------------------------------------
 	query := `
 		SELECT 
 			p.uuid AS project_id,
@@ -94,9 +88,6 @@ func VerifyPublicKey(c *fiber.Ctx) error {
 		})
 	}
 
-	// --------------------------------------------------
-	// STEP 3: Per-project rate limiting
-	// --------------------------------------------------
 	// limits depend on plan
 	limit := 200 // free plan default (200 req/min per project)
 	if ctx.SubscriptionType == "pro" {
@@ -115,9 +106,6 @@ func VerifyPublicKey(c *fiber.Ctx) error {
 		}
 	}
 
-	// --------------------------------------------------
-	// STEP 4: Enforce monthly quota
-	// --------------------------------------------------
 	now := time.Now()
 	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
 

@@ -1,2 +1,11 @@
 .env
 tmp
+*.exe
+*.dll
+*.so
+*.dylib
+*.test/bin/
+/pkg/
+/vendor/
+/Godeps/
+data/GeoLite2-City.mmdb
