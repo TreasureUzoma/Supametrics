@@ -38,18 +38,29 @@ func main() {
 		ProxyHeader: fiber.HeaderXForwardedFor,
 	})
 
-	clientUrl := os.Getenv("APP_URL")
+	clientUrls := os.Getenv("APP_URL")
+
+	// split comma-separated URLs into a slice
+	allowedOrigins := strings.Split(clientUrls, ",")
+	for i, origin := range allowedOrigins {
+		allowedOrigins[i] = strings.TrimSuffix(strings.TrimSpace(origin), "/")
+	}
 
 	app.Use(cors.New(cors.Config{
 		AllowOriginsFunc: func(origin string) bool {
-			allowedUrl := strings.TrimSuffix(clientUrl, "/")
 			requestOrigin := strings.TrimSuffix(origin, "/")
 
-			if allowedUrl != "" {
-				return requestOrigin == allowedUrl
-			} else {
+			// If no env is set, allow all
+			if len(allowedOrigins) == 0 || (len(allowedOrigins) == 1 && allowedOrigins[0] == "") {
 				return true
 			}
+
+			for _, allowed := range allowedOrigins {
+				if requestOrigin == allowed {
+					return true
+				}
+			}
+			return false
 		},
 		AllowHeaders: "Origin, Content-Type, Accept, Authorization, X-Private-Key, X-Forwarded-For, X-Public-Key",
 		AllowMethods: "GET, POST, PUT, HEAD, OPTIONS",
