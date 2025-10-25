@@ -65,7 +65,7 @@ export default function ProjectAnalyticsPage({
             loading={isLoading}
             data={
               data?.browserSummary?.map((b) => ({
-                label: String(b.browserName ?? "Unknown"),
+                label: String(b.browser_name ?? "Unknown"),
                 count: Number(b.count ?? 0),
               })) ?? []
             }
@@ -75,7 +75,7 @@ export default function ProjectAnalyticsPage({
             loading={isLoading}
             data={
               data?.deviceSummary?.map((d) => ({
-                label: String(d.deviceType ?? "Unknown"),
+                label: String(d.device_type ?? "Unknown"),
                 count: Number(d.count ?? 0),
               })) ?? []
             }
@@ -88,7 +88,7 @@ export default function ProjectAnalyticsPage({
             loading={isLoading}
             data={
               data?.osSummary?.map((o) => ({
-                label: String(o.osName ?? "Unknown"),
+                label: String(o.os_name ?? "Unknown"),
                 count: Number(o.count ?? 0),
               })) ?? []
             }

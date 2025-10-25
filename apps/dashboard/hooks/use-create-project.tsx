@@ -1,9 +1,11 @@
 import { toast } from "sonner";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosFetch from "@repo/ui/lib/axios";
+import { useRouter } from "next/navigation";
 
 export const useCreateProject = () => {
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   const mutation = useMutation({
     mutationFn: async (newProject: {
@@ -22,11 +24,12 @@ export const useCreateProject = () => {
       return res;
     },
 
-    onSuccess: () => {
+    onSuccess: (res) => {
       toast.success("Project created successfully!");
 
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       queryClient.invalidateQueries({ queryKey: ["session"] });
+      router.push(`/projects/${res.project.uuid}/analytics`);
     },
 
     onError: (error) => {

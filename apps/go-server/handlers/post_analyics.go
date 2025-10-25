@@ -1,11 +1,11 @@
 package handlers
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net"
-	"strings"
+	"net/http"
+	"os"
 	"time"
 
 	"supametrics/db"
@@ -15,6 +15,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"github.com/mssola/user_agent"
 	"github.com/oschwald/geoip2-golang"
 )
 
@@ -24,9 +25,15 @@ func InitGeoDB(dbPath string) error {
 	var err error
 	GeoDB, err = geoip2.Open(dbPath)
 	if err != nil {
-		return fmt.Errorf("failed to open MaxMind GeoLite2 DB at %s: %w", dbPath, err)
+		return fmt.Errorf("failed to open MaxMind GeoLite2 DB: %w", err)
 	}
-	fmt.Printf("Successfully loaded MaxMind GeoLite2 database from %s\n", dbPath)
+
+	info, _ := os.Stat(dbPath)
+	if time.Since(info.ModTime()) > 30*24*time.Hour {
+		fmt.Println("GeoLite2 DB may be outdated. Update recommended.")
+	}
+
+	fmt.Println("GeoLite2 database loaded:", dbPath)
 	return nil
 }
 
@@ -35,44 +42,78 @@ type GeoIPData struct {
 	City        string
 }
 
-func getGeoIPLookup(ip string) (GeoIPData, error) {
-	isLocalIP := ip == "" || ip == "unknown" || strings.HasPrefix(ip, "10.") || strings.HasPrefix(ip, "192.168.") || strings.HasPrefix(ip, "127.") || strings.HasPrefix(ip, "172.16.")
+func isPrivateIP(ipStr string) bool {
+	ip := net.ParseIP(ipStr)
+	if ip == nil {
+		return false
+	}
 
-	if isLocalIP {
-		return GeoIPData{
-			CountryName: "Private IP",
-			City:        "Private IP",
-		}, nil
+	if ip.IsPrivate() || ip.IsLoopback() {
+		return true
+	}
+	return false
+}
+
+func getGeoIPLookup(ip string) (GeoIPData, error) {
+	if ip == "" {
+		return GeoIPData{CountryName: "Unknown", City: "Unknown"}, fmt.Errorf("IP address is empty")
+	}
+
+	parsedIP := net.ParseIP(ip)
+	if parsedIP == nil {
+		return GeoIPData{CountryName: "Unknown", City: "Unknown"}, fmt.Errorf("failed to parse IP: %s", ip)
+	}
+
+	if isPrivateIP(ip) {
+		return GeoIPData{CountryName: "Private IP", City: "Private IP"}, nil
 	}
 
 	if GeoDB == nil {
-		return GeoIPData{}, fmt.Errorf("GeoDB not initialized for public IP lookup")
+		return GeoIPData{}, fmt.Errorf("GeoDB not initialized")
 	}
 
-	record, err := GeoDB.City(net.ParseIP(ip))
+	record, err := GeoDB.City(parsedIP)
 	if err != nil {
-		return GeoIPData{}, fmt.Errorf("MaxMind GeoLite2 lookup failed for %s: %w", ip, err)
+		return fallbackGeoLookup(ip)
 	}
 
 	country := record.Country.IsoCode
 	city := record.City.Names["en"]
 
 	if country == "" {
-		country = "XX"
+		country = "Unknown"
 	}
-
 	if city == "" {
 		city = "Unknown"
 	}
 
-	if country == "XX" && city == "Unknown" {
-		return GeoIPData{}, fmt.Errorf("Geolocation lookup for public IP %s failed to resolve to a known location", ip)
+	return GeoIPData{CountryName: country, City: city}, nil
+}
+
+func fallbackGeoLookup(ip string) (GeoIPData, error) {
+	url := fmt.Sprintf("http://ip-api.com/json/%s?fields=country,city,status,message", ip)
+	resp, err := http.Get(url)
+	if err != nil {
+		return GeoIPData{}, fmt.Errorf("fallback lookup failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var data struct {
+		Status  string `json:"status"`
+		Country string `json:"country"`
+		City    string `json:"city"`
+		Message string `json:"message"`
 	}
 
-	return GeoIPData{
-		CountryName: country,
-		City:        city,
-	}, nil
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return GeoIPData{}, err
+	}
+
+	if data.Status != "success" {
+		return GeoIPData{}, fmt.Errorf("fallback lookup error: %s", data.Message)
+	}
+
+	return GeoIPData{CountryName: data.Country, City: data.City}, nil
 }
 
 type UAParsedData struct {
@@ -83,73 +124,33 @@ type UAParsedData struct {
 	DeviceType     string
 }
 
-func mockParseUserAgent(userAgent string) UAParsedData {
-	if strings.Contains(userAgent, "Chrome") && strings.Contains(userAgent, "Macintosh") {
+func parseUserAgent(uaString string) UAParsedData {
+	if uaString == "" {
 		return UAParsedData{
-			BrowserName:    "Chrome",
-			BrowserVersion: "125.0.0",
-			OSName:         "macOS",
-			OSVersion:      "14.4",
-			DeviceType:     "desktop",
+			BrowserName:    "Unknown",
+			BrowserVersion: "0.0",
+			OSName:         "Unknown",
+			OSVersion:      "0.0",
+			DeviceType:     "unknown",
 		}
 	}
+
+	ua := user_agent.New(uaString)
+	name, version := ua.Browser()
+	os := ua.OS()
+
+	deviceType := "desktop"
+	if ua.Mobile() {
+		deviceType = "mobile"
+	}
+
 	return UAParsedData{
-		BrowserName:    "Unknown",
-		BrowserVersion: "0.0",
-		OSName:         "Unknown",
-		OSVersion:      "0.0",
-		DeviceType:     "unknown",
+		BrowserName:    name,
+		BrowserVersion: version,
+		OSName:         os,
+		OSVersion:      "Unknown",
+		DeviceType:     deviceType,
 	}
-}
-
-func getOrCreateSessionID(c *fiber.Ctx) (string, error) {
-	const cookieName = "supa_sid"
-	const maxAge = 30 * time.Minute
-
-	sessionID := c.Cookies(cookieName)
-
-	if sessionID == "" {
-		sessionID = uuid.New().String()
-	}
-
-	c.Cookie(&fiber.Cookie{
-		Name:     cookieName,
-		Value:    sessionID,
-		Expires:  time.Now().Add(maxAge),
-		HTTPOnly: true,
-		Secure:   c.IsProxyTrusted(),
-		SameSite: "Lax",
-	})
-
-	return sessionID, nil
-}
-
-func GenerateAnonVisitorID(ip, userAgent string, t time.Time) string {
-	if ip == "" {
-		ip = "unknown"
-	} else {
-		if strings.Contains(ip, ".") {
-			parts := strings.Split(ip, ".")
-			if len(parts) == 4 {
-				ip = fmt.Sprintf("%s.%s.%s.0", parts[0], parts[1], parts[2])
-			}
-		} else if strings.Contains(ip, ":") {
-			parts := strings.Split(ip, ":")
-			if len(parts) > 2 {
-				ip = strings.Join(parts[:2], ":") + "::"
-			}
-		}
-	}
-
-	if userAgent == "" {
-		userAgent = "unknown"
-	}
-
-	date := t.Format("2006-01-02")
-	base := fmt.Sprintf("%s|%s|%s", ip, userAgent, date)
-
-	hash := sha256.Sum256([]byte(base))
-	return hex.EncodeToString(hash[:])
 }
 
 type AnalyticsEventRequest struct {
@@ -168,9 +169,6 @@ type AnalyticsEventRequest struct {
 	EventData map[string]any `json:"event_data,omitempty"`
 
 	Duration *int `json:"duration,omitempty"`
-
-	Country *string `json:"country,omitempty"`
-	City    *string `json:"city,omitempty"`
 }
 
 func LogAnalyticsEvent(c *fiber.Ctx) error {
@@ -185,53 +183,36 @@ func LogAnalyticsEvent(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Invalid payload"})
 	}
 
-	if req.Pathname == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Validation failed: pathname is required"})
-	}
-	if req.EventType == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Validation failed: event_type is required"})
+	if req.Pathname == "" || req.EventType == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Missing required fields"})
 	}
 
 	clientIP := c.IP()
-	userAgent := c.Get(fiber.HeaderUserAgent)
-	eventTime := time.Now().UTC()
 
-	sessionID, _ := getOrCreateSessionID(c)
-	anonVisitorID := GenerateAnonVisitorID(clientIP, userAgent, eventTime)
-
-	var country *string
-	var city *string
-	var placeholder string
-
-	if req.Country != nil && req.City != nil {
-		country = req.Country
-		city = req.City
-	} else {
-		geoData, err := getGeoIPLookup(clientIP)
-
-		if err != nil {
-			// If GeoIP lookup fails for a public IP, log "Unknown Location"
-			placeholder = "Unknown Location"
-			country = &placeholder
-			city = &placeholder
-		} else if geoData.CountryName == "Private IP" {
-			// If a private IP is detected, log "Private IP"
-			country = &geoData.CountryName
-			city = &geoData.City
-		} else {
-			// Successful public IP lookup
-			country = &geoData.CountryName
-			city = &geoData.City
+	if clientIP == "" && c.Context().RemoteAddr() != nil {
+		ipPort := c.Context().RemoteAddr().String()
+		host, _, err := net.SplitHostPort(ipPort)
+		if err == nil {
+			clientIP = host
 		}
 	}
 
-	uaData := mockParseUserAgent(userAgent)
-	browserName := &uaData.BrowserName
-	browserVersion := &uaData.BrowserVersion
-	osName := &uaData.OSName
-	osVersion := &uaData.OSVersion
-	deviceType := &uaData.DeviceType
-	userAgentPtr := &userAgent
+	if clientIP == "" {
+		clientIP = "Unknown"
+	}
+
+	userAgent := c.Get(fiber.HeaderUserAgent)
+	eventTime := time.Now().UTC()
+
+	sessionID := uuid.New().String()
+	anonVisitorID := utils.GenerateAnonVisitorID(clientIP, userAgent, eventTime)
+
+	geoData, err := getGeoIPLookup(clientIP)
+	if err != nil {
+		geoData = GeoIPData{CountryName: "Unknown", City: "Unknown"}
+	}
+
+	uaData := parseUserAgent(userAgent)
 
 	event := models.AnalyticsEvent{
 		UUID:           uuid.New(),
@@ -250,14 +231,14 @@ func LogAnalyticsEvent(c *fiber.Ctx) error {
 		EventType:      req.EventType,
 		EventName:      req.EventName,
 		EventData:      req.EventData,
-		Country:        country,
-		City:           city,
-		BrowserName:    browserName,
-		BrowserVersion: browserVersion,
-		OSName:         osName,
-		OSVersion:      osVersion,
-		DeviceType:     deviceType,
-		UserAgent:      userAgentPtr,
+		Country:        &geoData.CountryName,
+		City:           &geoData.City,
+		BrowserName:    &uaData.BrowserName,
+		BrowserVersion: &uaData.BrowserVersion,
+		OSName:         &uaData.OSName,
+		OSVersion:      &uaData.OSVersion,
+		DeviceType:     &uaData.DeviceType,
+		UserAgent:      &userAgent,
 		Duration:       req.Duration,
 	}
 
@@ -269,22 +250,27 @@ func LogAnalyticsEvent(c *fiber.Ctx) error {
 			country, city, browser_name, browser_version, os_name, os_version,
 			device_type, user_agent, duration
 		) VALUES (
-			$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25
+			$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,
+			$17,$18,$19,$20,$21,$22,$23,$24,$25
 		)
 	`
-	_, err := db.DB.Exec(query,
+
+	_, err = db.DB.Exec(query,
 		event.UUID, event.ProjectID, event.SessionID, event.VisitorID, event.Timestamp,
 		event.Pathname, event.Referrer, event.Hostname, event.UTMSource, event.UTMMedium,
 		event.UTMCampaign, event.UTMTerm, event.UTMContent, event.EventType, event.EventName,
-		utils.ToJSON(event.EventData), event.Country, event.City, event.BrowserName, event.BrowserVersion,
-		event.OSName, event.OSVersion, event.DeviceType, event.UserAgent, event.Duration,
+		utils.ToJSON(event.EventData), event.Country, event.City, event.BrowserName,
+		event.BrowserVersion, event.OSName, event.OSVersion, event.DeviceType,
+		event.UserAgent, event.Duration,
 	)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Failed to log event to database", "error": err.Error()})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Failed to log event",
+			"error":   err.Error(),
+		})
 	}
 
-	monthKey := time.Now().Format("2006-01")
-	cacheKey := "events:" + projectCtx.ProjectID + ":" + monthKey
+	cacheKey := fmt.Sprintf("events:%s:%s", projectCtx.ProjectID, time.Now().Format("2006-01"))
 	_, _ = utils.IncrementCache("project_events", cacheKey, 30*24*time.Hour)
 
 	return c.JSON(fiber.Map{

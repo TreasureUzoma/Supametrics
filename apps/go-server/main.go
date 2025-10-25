@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/joho/godotenv"
 
 	"supametrics/db"
@@ -35,6 +36,8 @@ func main() {
 	app := fiber.New(fiber.Config{
 		ProxyHeader: fiber.HeaderXForwardedFor,
 	})
+
+	app.Use(cors.New())
 
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{
