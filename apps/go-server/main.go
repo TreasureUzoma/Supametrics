@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -37,7 +38,22 @@ func main() {
 		ProxyHeader: fiber.HeaderXForwardedFor,
 	})
 
-	app.Use(cors.New())
+	clientUrl := os.Getenv("APP_URL")
+
+	app.Use(cors.New(cors.Config{
+		AllowOriginsFunc: func(origin string) bool {
+			allowedUrl := strings.TrimSuffix(clientUrl, "/")
+			requestOrigin := strings.TrimSuffix(origin, "/")
+
+			if allowedUrl != "" {
+				return requestOrigin == allowedUrl
+			} else {
+				return true
+			}
+		},
+		AllowHeaders: "Origin, Content-Type, Accept, Authorization, X-Private-Key, X-Forwarded-For, X-Public-Key",
+		AllowMethods: "GET, POST, PUT, HEAD, OPTIONS",
+	}))
 
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{

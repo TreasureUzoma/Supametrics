@@ -53,7 +53,7 @@ export function useSession() {
     if (query.isError) {
       if (
         query.error instanceof Error &&
-        query.error.message === "Unauthorized"
+        query.error.message === "Login to continue"
       ) {
         clearUser();
         toast.error("Your session has expired. Please log in again.");

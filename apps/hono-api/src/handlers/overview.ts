@@ -20,6 +20,13 @@ overviewRoute.get("/", async (c) => {
     const personal = c.req.query("personal") === "true";
     const teamIdParam = c.req.query("teamId");
 
+    if (!currentUser) {
+      return c.json(
+        { success: false, message: "Authentication required", data: null },
+        401
+      );
+    }
+
     if (teamIdParam && !isValidUUID.safeParse(teamIdParam).success) {
       return c.json(
         { success: false, message: "Invalid teamId UUID", data: null },
@@ -28,22 +35,17 @@ overviewRoute.get("/", async (c) => {
     }
 
     let condition;
-    if (personal) {
+    if (personal || (!personal && !teamIdParam)) {
       condition = or(
-        eq(projects.userId, currentUser!.uuid),
-        eq(projectMembers.userId, currentUser!.uuid)
+        eq(projects.userId, currentUser.uuid),
+        eq(projectMembers.userId, currentUser.uuid)
       );
     } else if (teamIdParam) {
       condition = eq(projects.teamId, teamIdParam);
-    } else {
-      condition = or(
-        eq(projects.userId, currentUser!.uuid),
-        eq(projectMembers.userId, currentUser!.uuid)
-      );
     }
 
     const userProjects = await db
-      .select({ uuid: projects.uuid })
+      .selectDistinct({ uuid: projects.uuid })
       .from(projects)
       .leftJoin(projectMembers, eq(projectMembers.projectId, projects.uuid))
       .where(condition);
@@ -58,7 +60,7 @@ overviewRoute.get("/", async (c) => {
           totalProjects: 0,
           totalReports: 0,
           totalVisitors: 0,
-          totalVisitorsThisWeek: { count: 0, change: "+0%" },
+          totalVisitorsThisWeek: { count: 0, change: "+0.0%" },
         },
       });
     }
@@ -69,11 +71,20 @@ overviewRoute.get("/", async (c) => {
       .where(inArray(reports.projectId, projectIds));
 
     const [{ count: visitorsCountRaw }] = await db
-      .select({ count: countDistinct(analytics.visitorId) })
+      .select({ count: count(analytics.visitorId) })
       .from(analytics)
       .where(inArray(analytics.projectId, projectIds));
 
     const weeklyVisitorsAggregate = await getWeeklyProjectAggregate(projectIds);
+
+    const totalVisitorsThisWeekCount = Object.values(
+      weeklyVisitorsAggregate
+    ).reduce((sum, projectData) => sum + projectData.uniqueVisitors, 0);
+
+    const overallUniqueVisitorsChange =
+      Object.values(weeklyVisitorsAggregate).length > 0
+        ? Object.values(weeklyVisitorsAggregate)[0].uniqueVisitorsChange
+        : "+0.0%";
 
     return c.json({
       success: true,
@@ -82,7 +93,10 @@ overviewRoute.get("/", async (c) => {
         totalProjects: projectIds.length,
         totalReports: Number(reportsCountRaw ?? 0),
         totalVisitors: Number(visitorsCountRaw ?? 0),
-        totalVisitorsThisWeek: weeklyVisitorsAggregate,
+        totalVisitorsThisWeek: {
+          count: totalVisitorsThisWeekCount,
+          change: overallUniqueVisitorsChange,
+        },
       },
     });
   } catch (err: any) {
