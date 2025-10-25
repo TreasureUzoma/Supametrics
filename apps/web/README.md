@@ -6,6 +6,8 @@ First, run the development server:
 yarn dev
 ```
 
+pretty much not usefull if youre selfhosting
+
 Open [http://localhost:3001](http://localhost:3001) with your browser to see the result.
 
 You can start editing the page by modifying `src/app/page.tsx`. The page auto-updates as you edit the file.
