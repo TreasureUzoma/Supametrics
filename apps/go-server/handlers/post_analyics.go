@@ -153,24 +153,6 @@ func parseUserAgent(uaString string) UAParsedData {
 	}
 }
 
-type AnalyticsEventRequest struct {
-	Pathname string  `json:"pathname" validate:"required"`
-	Referrer *string `json:"referrer,omitempty"`
-	Hostname *string `json:"hostname,omitempty"`
-
-	UTMSource   *string `json:"utm_source,omitempty"`
-	UTMMedium   *string `json:"utm_medium,omitempty"`
-	UTMCampaign *string `json:"utm_campaign,omitempty"`
-	UTMTerm     *string `json:"utm_term,omitempty"`
-	UTMContent  *string `json:"utm_content,omitempty"`
-
-	EventType string         `json:"event_type" validate:"required"`
-	EventName *string        `json:"event_name,omitempty"`
-	EventData map[string]any `json:"event_data,omitempty"`
-
-	Duration *int `json:"duration,omitempty"`
-}
-
 func LogAnalyticsEvent(c *fiber.Ctx) error {
 	ctxVal := c.Locals("project_ctx")
 	if ctxVal == nil {
@@ -178,7 +160,7 @@ func LogAnalyticsEvent(c *fiber.Ctx) error {
 	}
 	projectCtx := ctxVal.(middleware.ProjectContext)
 
-	var req AnalyticsEventRequest
+	var req models.AnalyticsEventRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Invalid payload"})
 	}
