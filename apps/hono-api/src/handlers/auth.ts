@@ -59,7 +59,12 @@ authHandler.post("/signup", async (c) => {
       );
 
     const hashed = await hashPassword(password!);
-    await db.insert(user).values({ name, email, password: hashed });
+    await db.insert(user).values({
+      name,
+      email,
+      password: hashed,
+      subscriptionType: "enterprise", // selfhosting? update to your taste
+    });
 
     return c.json(
       {

@@ -12,6 +12,7 @@ import (
 	"supametrics/db"
 	"supametrics/handlers"
 	"supametrics/middleware"
+	"supametrics/utils"
 )
 
 func main() {
@@ -65,6 +66,12 @@ func main() {
 		AllowHeaders: "Origin, Content-Type, Accept, Authorization, X-Private-Key, X-Forwarded-For, X-Public-Key",
 		AllowMethods: "GET, POST, PUT, HEAD, OPTIONS",
 	}))
+
+	app.Use(func(c *fiber.Ctx) error {
+		ip := utils.GetRealClientIP(c)
+		c.Locals("clientIP", ip)
+		return c.Next()
+	})
 
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{

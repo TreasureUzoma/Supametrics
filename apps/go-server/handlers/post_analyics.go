@@ -169,7 +169,7 @@ func LogAnalyticsEvent(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Missing required fields"})
 	}
 
-	clientIP := c.IP()
+	clientIP := c.Locals("clientIP").(string)
 
 	if clientIP == "" && c.Context().RemoteAddr() != nil {
 		ipPort := c.Context().RemoteAddr().String()

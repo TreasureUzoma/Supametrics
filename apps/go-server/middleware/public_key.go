@@ -23,11 +23,7 @@ type ProjectContext struct {
 func VerifyPublicKey(c *fiber.Ctx) error {
 	publicKey := c.Get("X-Public-Key")
 
-	// identify client (IP + User-Agent)
-	ip := c.Get("X-Forwarded-For")
-	if ip == "" {
-		ip = c.IP()
-	}
+	ip := c.Locals("clientIP").(string)
 	userAgent := c.Get("User-Agent")
 	userHash := utils.GetUserHash(ip, userAgent)
 
@@ -88,13 +84,7 @@ func VerifyPublicKey(c *fiber.Ctx) error {
 		})
 	}
 
-	// limits depend on plan
-	limit := 200 // free plan default (200 req/min per project)
-	if ctx.SubscriptionType == "pro" {
-		limit = 2000 // pro projects get higher rate
-	} else if ctx.SubscriptionType == "enterprise" {
-		limit = 0 // unlimited
-	}
+	limit := utils.GetQuota(ctx.SubscriptionType)
 
 	if limit > 0 {
 		rateKey := fmt.Sprintf("ratelimit:%s", ctx.ProjectID)
@@ -128,12 +118,7 @@ func VerifyPublicKey(c *fiber.Ctx) error {
 		_ = utils.SetCache("project_events", cacheKey, ctx.TotalEvents, time.Minute)
 	}
 
-	quota := 15000 // free plan
-	if ctx.SubscriptionType == "pro" {
-		quota = 1000000
-	} else if ctx.SubscriptionType == "enterprise" {
-		quota = 0 // unlimited
-	}
+	quota := utils.GetQuota(ctx.SubscriptionType)
 
 	if quota > 0 && ctx.TotalEvents > quota {
 		return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{

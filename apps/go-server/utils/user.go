@@ -6,7 +6,22 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/gofiber/fiber/v2"
 )
+
+func GetRealClientIP(c *fiber.Ctx) string {
+	if ip := c.Get("CF-Connecting-IP"); ip != "" {
+		return ip
+	}
+	if ip := c.Get("X-Forwarded-For"); ip != "" {
+		return strings.Split(ip, ",")[0]
+	}
+	if ip := c.Get("X-Real-IP"); ip != "" {
+		return ip
+	}
+	return c.IP()
+}
 
 // GenerateAnonVisitorID creates a privacy-friendly, daily-reset visitor hash.
 // It uses IP (truncated), User-Agent, and current date.

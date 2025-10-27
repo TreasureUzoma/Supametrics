@@ -22,10 +22,8 @@ func VerifyPrivateKey(c *fiber.Ctx) error {
 		})
 	}
 
-	ip := c.Get("X-Forwarded-For")
-	if ip == "" {
-		ip = c.IP()
-	}
+	ip := c.Locals("clientIP").(string)
+
 	userAgent := c.Get("User-Agent")
 	userHash := utils.GetUserHash(ip, userAgent)
 
@@ -76,18 +74,7 @@ func VerifyPrivateKey(c *fiber.Ctx) error {
 	projectRateKey := fmt.Sprintf("ratelimit:project:%s:%s", ctx.ProjectID, userHash)
 	projectReqCount, _ := utils.IncrementCache("ratelimit", projectRateKey, time.Minute)
 
-	// dynamic per-plan limits
-	var projectLimit int
-	switch ctx.SubscriptionType {
-	case "free":
-		projectLimit = 2000
-	case "pro":
-		projectLimit = 20000
-	case "enterprise":
-		projectLimit = 100000
-	default:
-		projectLimit = 2000
-	}
+	projectLimit := utils.GetQuota(ctx.SubscriptionType)
 
 	if projectReqCount > projectLimit {
 		return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
@@ -95,7 +82,6 @@ func VerifyPrivateKey(c *fiber.Ctx) error {
 		})
 	}
 
-	// --- Event count quota check ---
 	now := time.Now()
 	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
 
@@ -119,17 +105,7 @@ func VerifyPrivateKey(c *fiber.Ctx) error {
 	}
 
 	// enforce quota by subscription
-	var quota int
-	switch ctx.SubscriptionType {
-	case "free":
-		quota = 15000
-	case "pro":
-		quota = 150000
-	case "enterprise":
-		quota = -1 // unlimited
-	default:
-		quota = 15000
-	}
+	quota := utils.GetQuota(ctx.SubscriptionType)
 
 	if quota > 0 && ctx.TotalEvents > quota {
 		return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
