@@ -22,7 +22,6 @@ func VerifyPrivateKey(c *fiber.Ctx) error {
 	}
 
 	ip := c.Locals("clientIP").(string)
-
 	userAgent := c.Get("User-Agent")
 	userHash := utils.GetUserHash(ip, userAgent)
 
@@ -34,7 +33,7 @@ func VerifyPrivateKey(c *fiber.Ctx) error {
 		})
 	}
 
-	query := `
+	const privateKeyQuery = `
 		SELECT 
 			p.uuid AS project_id,
 			p.team_id,
@@ -58,7 +57,7 @@ func VerifyPrivateKey(c *fiber.Ctx) error {
 		JOIN projects p ON pak.project_id = p.uuid
 		LEFT JOIN teams t ON p.team_id = t.uuid
 		LEFT JOIN "user" tu ON t.owner_id = tu.uuid 
-		JOIN "user" u ON p.user_id = u.uuid
+		LEFT JOIN "user" u ON p.user_id = u.uuid
 		WHERE pak.secret_key = $1
 		  AND pak.revoked = false
 		LIMIT 1;
@@ -67,7 +66,7 @@ func VerifyPrivateKey(c *fiber.Ctx) error {
 	var ctx ProjectContext
 	var teamID sql.NullString
 
-	err := db.DB.QueryRow(query, privateKey).Scan(
+	err := db.DB.QueryRow(privateKeyQuery, privateKey).Scan(
 		&ctx.ProjectID,
 		&teamID,
 		&ctx.UserID,
@@ -101,7 +100,6 @@ func VerifyPrivateKey(c *fiber.Ctx) error {
 	projectReqCount, _ := utils.IncrementCache("ratelimit", projectRateKey, time.Minute)
 
 	projectLimit := utils.GetQuota(ctx.SubscriptionType)
-
 	if projectReqCount > projectLimit {
 		return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
 			"message": "Project rate limit exceeded for your plan",
@@ -119,7 +117,6 @@ func VerifyPrivateKey(c *fiber.Ctx) error {
 		countQuery := `
 			SELECT COUNT(*) 
 			FROM analytics_events
-			FROM analytics_events
 			WHERE project_id = $1
 			  AND timestamp >= $2;
 		`
@@ -132,7 +129,6 @@ func VerifyPrivateKey(c *fiber.Ctx) error {
 	}
 
 	quota := utils.GetQuota(ctx.SubscriptionType)
-
 	if quota > 0 && ctx.TotalEvents > quota {
 		return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
 			"message": "Monthly event quota exceeded for this project",
@@ -140,6 +136,5 @@ func VerifyPrivateKey(c *fiber.Ctx) error {
 	}
 
 	c.Locals("project_ctx", ctx)
-
 	return c.Next()
 }
