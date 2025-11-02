@@ -10,14 +10,19 @@ import {
 import { Input } from "@repo/ui/components/ui/input";
 import { CopyButton } from "@repo/ui/components/ui/copy-button";
 import { Label } from "@repo/ui/components/ui/label";
+import { Button } from "@repo/ui/components/ui/button";
+import { useGenerateNewApiKeys } from "@/hooks/use-projects";
 
 export const ProjectKeysCopy = ({
   publicKey,
   privateKey,
+  projectId,
 }: {
   publicKey: string;
   privateKey: string;
+  projectId: string;
 }) => {
+  const { mutate, isPending } = useGenerateNewApiKeys(projectId);
   return (
     <Card>
       <CardHeader>
@@ -58,6 +63,15 @@ export const ProjectKeysCopy = ({
             />
             <CopyButton text={privateKey} />
           </div>
+        </div>
+        <div>
+          <Button
+            onClick={() => mutate()}
+            disabled={isPending}
+            className="inline-block mt-4 float-right"
+          >
+            {isPending ? "Generating..." : "Rotate key"}
+          </Button>
         </div>
       </CardContent>
     </Card>

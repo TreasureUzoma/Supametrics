@@ -43,6 +43,7 @@ export default function SettingsPage({
           <ProjectKeysCopy
             publicKey={data?.apiKey?.publicKey ?? "-"}
             privateKey={data?.apiKey?.secretKey ?? "-"}
+            projectId={projectId.id}
           />
         )}
         {data?.role == "admin" && <DeleteProject id={projectId.id} />}

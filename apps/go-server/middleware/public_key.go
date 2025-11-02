@@ -14,6 +14,7 @@ import (
 type ProjectContext struct {
 	ProjectID        string `json:"project_id"`
 	UserID           string `json:"user_id"`
+	TeamID           string `json:"team_id"`
 	SubscriptionType string `json:"subscription_type"`
 	UserStatus       string `json:"status"`
 	UserRole         string `json:"role"`
@@ -28,12 +29,10 @@ func VerifyPublicKey(c *fiber.Ctx) error {
 	userHash := utils.GetUserHash(ip, userAgent)
 
 	if err := utils.ValidatePublicKeyFormat(publicKey); err != nil {
-		// track invalid attempts per client
 		invalidKey := fmt.Sprintf("invalidkey:%s", userHash)
 		failCount, _ := utils.IncrementCache("security", invalidKey, 5*time.Minute)
 
 		if failCount > 10 {
-			// block this client temporarily
 			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
 				"message": "Too many invalid API key attempts, try again later",
 			})
@@ -48,12 +47,27 @@ func VerifyPublicKey(c *fiber.Ctx) error {
 	query := `
 		SELECT 
 			p.uuid AS project_id,
-			u.uuid AS user_id,
-			u.subscription_type,
-			u.status,
-			u.role
+			p.team_id,
+			CASE
+				WHEN p.team_id IS NOT NULL THEN tu.uuid
+				ELSE u.uuid
+			END AS user_id,
+			CASE
+				WHEN p.team_id IS NOT NULL THEN tu.subscription_type
+				ELSE u.subscription_type
+			END AS subscription_type,
+			CASE
+				WHEN p.team_id IS NOT NULL THEN tu.status
+				ELSE u.status
+			END AS user_status,
+			CASE
+				WHEN p.team_id IS NOT NULL THEN tu.role
+				ELSE u.role
+			END AS user_role
 		FROM project_api_keys pak
 		JOIN projects p ON pak.project_id = p.uuid
+		LEFT JOIN teams t ON p.team_id = t.uuid
+		LEFT JOIN "user" tu ON t.owner_id = tu.uuid 
 		JOIN "user" u ON p.user_id = u.uuid
 		WHERE pak.public_key = $1
 		  AND pak.revoked = false
@@ -61,15 +75,22 @@ func VerifyPublicKey(c *fiber.Ctx) error {
 	`
 
 	var ctx ProjectContext
+	var teamID sql.NullString
+
 	err := db.DB.QueryRow(query, publicKey).Scan(
 		&ctx.ProjectID,
+		&teamID,
 		&ctx.UserID,
 		&ctx.SubscriptionType,
 		&ctx.UserStatus,
 		&ctx.UserRole,
 	)
+
+	if teamID.Valid {
+		ctx.TeamID = teamID.String
+	}
+
 	if err == sql.ErrNoRows {
-		// count as invalid attempt
 		invalidKey := fmt.Sprintf("invalidkey:%s", userHash)
 		_, _ = utils.IncrementCache("security", invalidKey, 5*time.Minute)
 
@@ -87,7 +108,12 @@ func VerifyPublicKey(c *fiber.Ctx) error {
 	limit := utils.GetQuota(ctx.SubscriptionType)
 
 	if limit > 0 {
-		rateKey := fmt.Sprintf("ratelimit:%s", ctx.ProjectID)
+		rateScopeID := ctx.ProjectID
+		if ctx.TeamID != "" {
+			rateScopeID = ctx.TeamID
+		}
+
+		rateKey := fmt.Sprintf("ratelimit:%s", rateScopeID)
 		reqCount, _ := utils.IncrementCache("ratelimit", rateKey, time.Minute)
 		if reqCount > limit {
 			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
@@ -126,7 +152,6 @@ func VerifyPublicKey(c *fiber.Ctx) error {
 		})
 	}
 
-	// attach context for later handlers
 	c.Locals("project_ctx", ctx)
 	return c.Next()
 }

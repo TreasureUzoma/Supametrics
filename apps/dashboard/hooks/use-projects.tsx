@@ -248,3 +248,29 @@ export const useDeleteProject = (projectId: string) => {
     },
   });
 };
+
+export const useGenerateNewApiKeys = (projectId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data: res } = await axiosFetch.post(
+        `/projects/${projectId}/rotate-key`
+      );
+      return res;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["projects"],
+        exact: false,
+      });
+      toast.success("Rotated key successfully");
+    },
+    onError: (error) => {
+      if (error instanceof Error) {
+        toast.error(error?.message ?? "Failed to rorate key");
+      } else {
+        toast.error("Failed to rotate api key");
+      }
+    },
+  });
+};

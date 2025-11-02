@@ -14,7 +14,6 @@ import (
 func VerifyPrivateKey(c *fiber.Ctx) error {
 	privateKey := c.Get("X-Private-Key")
 
-	// validate format only (no DB check yet)
 	if err := utils.ValidateSecretKeyFormat(privateKey); err != nil {
 		log.Println("api key format validation failed:", err)
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
@@ -29,7 +28,7 @@ func VerifyPrivateKey(c *fiber.Ctx) error {
 
 	globalKey := fmt.Sprintf("ratelimit:global:%s", userHash)
 	reqCount, _ := utils.IncrementCache("ratelimit", globalKey, time.Minute)
-	if reqCount > 200 { // 200 req/min/IP
+	if reqCount > 200 {
 		return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
 			"message": "Global rate limit exceeded",
 		})
@@ -38,12 +37,27 @@ func VerifyPrivateKey(c *fiber.Ctx) error {
 	query := `
 		SELECT 
 			p.uuid AS project_id,
-			u.uuid AS user_id,
-			u.subscription_type,
-			u.status,
-			u.role
+			p.team_id,
+			CASE
+				WHEN p.team_id IS NOT NULL THEN tu.uuid
+				ELSE u.uuid
+			END AS user_id,
+			CASE
+				WHEN p.team_id IS NOT NULL THEN tu.subscription_type
+				ELSE u.subscription_type
+			END AS subscription_type,
+			CASE
+				WHEN p.team_id IS NOT NULL THEN tu.status
+				ELSE u.status
+			END AS user_status,
+			CASE
+				WHEN p.team_id IS NOT NULL THEN tu.role
+				ELSE u.role
+			END AS user_role
 		FROM project_api_keys pak
 		JOIN projects p ON pak.project_id = p.uuid
+		LEFT JOIN teams t ON p.team_id = t.uuid
+		LEFT JOIN "user" tu ON t.owner_id = tu.uuid 
 		JOIN "user" u ON p.user_id = u.uuid
 		WHERE pak.secret_key = $1
 		  AND pak.revoked = false
@@ -51,13 +65,21 @@ func VerifyPrivateKey(c *fiber.Ctx) error {
 	`
 
 	var ctx ProjectContext
+	var teamID sql.NullString
+
 	err := db.DB.QueryRow(query, privateKey).Scan(
 		&ctx.ProjectID,
+		&teamID,
 		&ctx.UserID,
 		&ctx.SubscriptionType,
 		&ctx.UserStatus,
 		&ctx.UserRole,
 	)
+
+	if teamID.Valid {
+		ctx.TeamID = teamID.String
+	}
+
 	if err == sql.ErrNoRows {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"message": "API key not found or revoked",
@@ -70,8 +92,12 @@ func VerifyPrivateKey(c *fiber.Ctx) error {
 		})
 	}
 
-	// Project-specific rate limiting
-	projectRateKey := fmt.Sprintf("ratelimit:project:%s:%s", ctx.ProjectID, userHash)
+	rateScopeID := ctx.ProjectID
+	if ctx.TeamID != "" {
+		rateScopeID = ctx.TeamID
+	}
+
+	projectRateKey := fmt.Sprintf("ratelimit:project:%s:%s", rateScopeID, userHash)
 	projectReqCount, _ := utils.IncrementCache("ratelimit", projectRateKey, time.Minute)
 
 	projectLimit := utils.GetQuota(ctx.SubscriptionType)
@@ -93,6 +119,7 @@ func VerifyPrivateKey(c *fiber.Ctx) error {
 		countQuery := `
 			SELECT COUNT(*) 
 			FROM analytics_events
+			FROM analytics_events
 			WHERE project_id = $1
 			  AND timestamp >= $2;
 		`
@@ -104,7 +131,6 @@ func VerifyPrivateKey(c *fiber.Ctx) error {
 		_ = utils.SetCache("project_events", cacheKey, ctx.TotalEvents, time.Minute)
 	}
 
-	// enforce quota by subscription
 	quota := utils.GetQuota(ctx.SubscriptionType)
 
 	if quota > 0 && ctx.TotalEvents > quota {
@@ -113,7 +139,6 @@ func VerifyPrivateKey(c *fiber.Ctx) error {
 		})
 	}
 
-	// attach to context for later handlers
 	c.Locals("project_ctx", ctx)
 
 	return c.Next()
