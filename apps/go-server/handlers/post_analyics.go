@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"supametrics/db"
@@ -170,8 +172,14 @@ func LogAnalyticsEvent(c *fiber.Ctx) error {
 	}
 
 	if req.Hostname == nil || *req.Hostname == "" {
-		hostnameVal := c.Hostname()
-		req.Hostname = &hostnameVal
+		origin := c.Get("Origin")
+		if origin != "" {
+			parsed, err := url.Parse(origin)
+			if err == nil {
+				host := strings.ToLower(parsed.Hostname())
+				req.Hostname = &host
+			}
+		}
 	}
 
 	clientIP := c.Locals("clientIP").(string)

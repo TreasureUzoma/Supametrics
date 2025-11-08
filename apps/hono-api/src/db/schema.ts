@@ -134,7 +134,7 @@ export const analyticsEvents = pgTable("analytics_events", {
 
   pathname: text("pathname").notNull(),
   referrer: text("referrer"),
-  hostname: text("hostname"),
+  hostname: text("hostname"), // its req client origin without the https and paths
 
   utmSource: varchar("utm_source", { length: 64 }),
   utmMedium: varchar("utm_medium", { length: 64 }),
