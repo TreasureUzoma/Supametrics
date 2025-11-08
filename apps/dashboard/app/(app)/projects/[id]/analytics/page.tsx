@@ -154,7 +154,7 @@ export default function ProjectAnalyticsPage({
             loading={isLoading}
             data={
               data?.topUtmSources?.map((u) => ({
-                label: String(u.utmSource ?? "Unknown"),
+                label: String(u.utm_source ?? "Unknown"),
                 count: Number(u.count ?? 0),
               })) ?? []
             }

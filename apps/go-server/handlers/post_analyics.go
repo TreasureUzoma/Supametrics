@@ -169,6 +169,11 @@ func LogAnalyticsEvent(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Missing required fields"})
 	}
 
+	if req.Hostname == nil || *req.Hostname == "" {
+		hostnameVal := c.Hostname()
+		req.Hostname = &hostnameVal
+	}
+
 	clientIP := c.Locals("clientIP").(string)
 
 	if clientIP == "" && c.Context().RemoteAddr() != nil {
