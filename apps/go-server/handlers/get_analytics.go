@@ -42,14 +42,14 @@ func getTimeRange(filter string) (time.Time, time.Time, string) {
 		endTime = endOfDay(y)
 		bucketFormat = "hour"
 	case "thisweek":
-		// Assumes Monday start (common in analytics)
+		// Assumes Monday start 
 		weekday := now.Weekday()
 		daysToMonday := int(weekday - time.Monday)
 		if daysToMonday < 0 {
 			daysToMonday += 7
 		}
 		startTime = startOfDay(now.AddDate(0, 0, -daysToMonday))
-		endTime = endOfDay(now.AddDate(0, 0, 6-daysToMonday))
+		endTime = endOfDay(now)
 		bucketFormat = "day"
 	case "thismonth":
 		startTime = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
@@ -59,7 +59,7 @@ func getTimeRange(filter string) (time.Time, time.Time, string) {
 		startTime = time.Date(now.Year(), time.January, 1, 0, 0, 0, 0, time.UTC)
 		endTime = endOfYear(now)
 		bucketFormat = "month"
-	default: // Fallback to today
+	default: 
 		return getTimeRange("today")
 	}
 	return startTime, endTime, bucketFormat
@@ -95,7 +95,6 @@ func GetAnalytics(c *fiber.Ctx) error {
 	filter := c.Query("filter", "today")
 	eventName := c.Query("eventName")
 
-	// Validate filter
 	isValidFilter := false
 	for _, f := range allowedFilters {
 		if f == filter {
@@ -111,7 +110,6 @@ func GetAnalytics(c *fiber.Ctx) error {
 
 	startTime, endTime, bucketFormat := getTimeRange(filter)
 
-	// Build the base WHERE clause
 	whereClause := "project_id = $1 AND timestamp >= $2 AND timestamp <= $3"
 	queryArgs := []interface{}{projectID, startTime, endTime}
 
@@ -120,7 +118,6 @@ func GetAnalytics(c *fiber.Ctx) error {
 		queryArgs = append(queryArgs, eventName)
 	}
 
-	// 2. Fetch Aggregations (Total Visits and Unique Visitors)
 	summaryQuery := fmt.Sprintf(`
 		SELECT 
 			COUNT(*), 
@@ -136,7 +133,6 @@ func GetAnalytics(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Database error fetching summary"})
 	}
 
-	// 3. Fetch Time-Series Frequency Data (Frequency)
 	frequencyQuery := fmt.Sprintf(`
 		SELECT 
 			date_trunc('%s', timestamp) AS time_bucket,
@@ -165,7 +161,6 @@ func GetAnalytics(c *fiber.Ctx) error {
 		frequencyData = append(frequencyData, fd)
 	}
 
-	// 4. Return the consolidated response
 	return c.JSON(fiber.Map{
 		"success": true,
 		"message": "Analytics fetched successfully",

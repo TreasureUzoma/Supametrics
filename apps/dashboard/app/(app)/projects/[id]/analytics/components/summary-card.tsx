@@ -62,7 +62,7 @@ export const SummaryCard = ({
           style={{ height: `${height}px` }}
         >
           <div
-            className="h-full bg-main/65 flex items-center px-2 text-xs text-white font-medium rounded-sm"
+            className="h-full bg-main/65 flex items-center px-2 text-xs text-primary font-medium rounded-sm"
             style={{ width: `${percentage}%` }}
           >
             {renderLabel(item.label)}
