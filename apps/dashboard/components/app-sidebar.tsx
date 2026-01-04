@@ -82,12 +82,18 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
         url: "/docs",
         icon: BookOpen,
         items: [
-          { title: "Introduction", url: "/docs/introduction" },
-          { title: "Installations", url: "/docs/introduction/installation" },
+          {
+            title: "Introduction",
+            url: "https://supametricsdocs.vercel.app/docs/introduction",
+          },
+          {
+            title: "Installations",
+            url: "https://supametricsdocs.vercel.app/docs/introduction/installation",
+          },
           { title: "Setup", url: "/docs/introduction/setup" },
           {
             title: "Viewing Analytics",
-            url: "/docs/introduction/viewanalytics",
+            url: "https://supametricsdocs.vercel.app/docs/introduction/viewanalytics",
           },
         ],
       },
