@@ -199,7 +199,13 @@ func LogAnalyticsEvent(c *fiber.Ctx) error {
 	userAgent := c.Get(fiber.HeaderUserAgent)
 	eventTime := time.Now().UTC()
 
-	sessionID := uuid.New().String()
+	var sessionID string
+	if req.SessionID != nil && *req.SessionID != "" {
+		sessionID = *req.SessionID
+	} else {
+		sessionID = uuid.New().String()
+	}
+
 	anonVisitorID := utils.GenerateAnonVisitorID(clientIP, userAgent, eventTime)
 
 	geoData, err := getGeoIPLookup(clientIP)

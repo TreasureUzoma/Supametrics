@@ -1,5 +1,5 @@
 {
-  "name": "with-tailwind",
+  "name": "supametrics",
   "private": true,
   "scripts": {
     "build": "turbo run build",

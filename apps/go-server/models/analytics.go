@@ -40,6 +40,7 @@ type AnalyticsEventRequest struct {
 	Pathname string  `json:"pathname" validate:"required"`
 	Referrer *string `json:"referrer,omitempty"`
 	Hostname *string `json:"hostname,omitempty"`
+	SessionID *string `json:"session_id,omitempty"`
 
 	UTMSource   *string `json:"utm_source,omitempty"`
 	UTMMedium   *string `json:"utm_medium,omitempty"`

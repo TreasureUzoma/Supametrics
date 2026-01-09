@@ -75,8 +75,11 @@ func endOfYear(t time.Time) time.Time {
 }
 
 type AnalyticsSummary struct {
-	TotalVisits    int `json:"totalVisits"`
-	UniqueVisitors int `json:"uniqueVisitors"`
+	TotalVisits         int     `json:"totalVisits"`
+	UniqueVisitors      int     `json:"uniqueVisitors"`
+	TotalSessions       int     `json:"totalSessions"`
+	TotalDuration       int     `json:"totalDuration"`
+	AvgSessionDuration  float64 `json:"avgSessionDuration"`
 }
 
 type FrequencyData struct {
@@ -120,14 +123,30 @@ func GetAnalytics(c *fiber.Ctx) error {
 
 	summaryQuery := fmt.Sprintf(`
 		SELECT 
-			COUNT(*), 
-			COUNT(DISTINCT visitor_id) 
-		FROM analytics_events 
-		WHERE %s;
-	`, whereClause)
+			(SELECT COUNT(*) FROM analytics_events WHERE %s AND event_type = 'pageview') as total_visits,
+			COUNT(DISTINCT visitor_id) as unique_visitors,
+			COUNT(DISTINCT session_id) as total_sessions,
+			COALESCE(SUM(session_duration), 0) as total_duration,
+			COALESCE(AVG(session_duration), 0) as avg_session_duration
+		FROM (
+			SELECT 
+				session_id,
+				visitor_id,
+				EXTRACT(EPOCH FROM (MAX(timestamp) - MIN(timestamp))) as session_duration
+			FROM analytics_events 
+			WHERE %s
+			GROUP BY session_id, visitor_id
+		) s;
+	`, whereClause, whereClause)
 
 	var summary AnalyticsSummary
-	err := db.DB.QueryRow(summaryQuery, queryArgs...).Scan(&summary.TotalVisits, &summary.UniqueVisitors)
+	err := db.DB.QueryRow(summaryQuery, queryArgs...).Scan(
+		&summary.TotalVisits,
+		&summary.UniqueVisitors,
+		&summary.TotalSessions,
+		&summary.TotalDuration,
+		&summary.AvgSessionDuration,
+	)
 	if err != nil && err != sql.ErrNoRows {
 		log.Println("Analytics summary query error:", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Database error fetching summary"})
@@ -136,7 +155,7 @@ func GetAnalytics(c *fiber.Ctx) error {
 	frequencyQuery := fmt.Sprintf(`
 		SELECT 
 			date_trunc('%s', timestamp) AS time_bucket,
-			COUNT(*) AS total_visits, 
+			COUNT(CASE WHEN event_type = 'pageview' THEN 1 END) AS total_visits, 
 			COUNT(DISTINCT visitor_id) AS unique_visitors 
 		FROM analytics_events 
 		WHERE %s 
@@ -168,9 +187,12 @@ func GetAnalytics(c *fiber.Ctx) error {
 			"projectId":      projectID,
 			"filter":         filter,
 			"eventName":      eventName,
-			"totalVisits":    summary.TotalVisits,
-			"uniqueVisitors": summary.UniqueVisitors,
-			"frequency":      frequencyData,
+			"totalVisits":         summary.TotalVisits,
+			"uniqueVisitors":      summary.UniqueVisitors,
+			"totalSessions":       summary.TotalSessions,
+			"totalDuration":       summary.TotalDuration,
+			"avgSessionDuration":  summary.AvgSessionDuration,
+			"frequency":           frequencyData,
 		},
 	})
 }
