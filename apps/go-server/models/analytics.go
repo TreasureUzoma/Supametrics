@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -53,4 +54,38 @@ type AnalyticsEventRequest struct {
 	EventData map[string]any `json:"event_data,omitempty"`
 
 	Duration *int `json:"duration,omitempty"`
+}
+
+// UnmarshalJSON implements custom unmarshaling to support both snake_case and camelCase
+func (r *AnalyticsEventRequest) UnmarshalJSON(data []byte) error {
+	type Alias AnalyticsEventRequest
+	aux := struct {
+		EventTypeAlt string         `json:"eventType"`
+		EventNameAlt *string        `json:"eventName"`
+		EventDataAlt map[string]any `json:"eventData"`
+		SessionIDAlt *string        `json:"sessionId"`
+		*Alias
+	}{
+		Alias: (*Alias)(r),
+	}
+
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	// Fallback to camelCase if snake_case is missing
+	if r.EventType == "" && aux.EventTypeAlt != "" {
+		r.EventType = aux.EventTypeAlt
+	}
+	if (r.EventName == nil || *r.EventName == "") && aux.EventNameAlt != nil {
+		r.EventName = aux.EventNameAlt
+	}
+	if r.EventData == nil && aux.EventDataAlt != nil {
+		r.EventData = aux.EventDataAlt
+	}
+	if (r.SessionID == nil || *r.SessionID == "") && aux.SessionIDAlt != nil {
+		r.SessionID = aux.SessionIDAlt
+	}
+
+	return nil
 }

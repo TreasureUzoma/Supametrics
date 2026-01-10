@@ -167,8 +167,19 @@ func LogAnalyticsEvent(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Invalid payload"})
 	}
 
-	if req.Pathname == "" || req.EventType == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Missing required fields"})
+	var missingFields []string
+	if req.Pathname == "" {
+		missingFields = append(missingFields, "pathname")
+	}
+	if req.EventType == "" {
+		missingFields = append(missingFields, "event_type")
+	}
+
+	if len(missingFields) > 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message":        fmt.Sprintf("Missing required fields: %s", strings.Join(missingFields, ", ")),
+			"missing_fields": missingFields,
+		})
 	}
 
 	if req.Hostname == nil || *req.Hostname == "" {
