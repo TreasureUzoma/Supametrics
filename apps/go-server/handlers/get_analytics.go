@@ -132,7 +132,10 @@ func GetAnalytics(c *fiber.Ctx) error {
 			SELECT 
 				session_id,
 				visitor_id,
-				EXTRACT(EPOCH FROM (MAX(timestamp) - MIN(timestamp))) as session_duration
+				COALESCE(
+					NULLIF(MAX(duration), 0),
+					EXTRACT(EPOCH FROM (MAX(timestamp) - MIN(timestamp)))
+				) as session_duration
 			FROM analytics_events 
 			WHERE %s
 			GROUP BY session_id, visitor_id

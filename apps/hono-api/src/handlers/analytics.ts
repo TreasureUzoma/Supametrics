@@ -206,12 +206,14 @@ async function getCommonAggregations(conditions: any[]) {
     browserSummary,
     topPaths,
     topReferrers,
+    topDurations,
     topHostnames,
     topUtmSources,
     topCountries,
     topCities,
     totalVisitsRes,
     uniqueVisitorsRes,
+    totalDurationRes,
   ] = await Promise.all([
     commonSelect([analyticsEvents.eventType, analyticsEvents.eventName]),
     commonSelect([analyticsEvents.osName]),
@@ -219,6 +221,7 @@ async function getCommonAggregations(conditions: any[]) {
     commonSelect([analyticsEvents.browserName]),
     commonSelect([analyticsEvents.pathname]).limit(15),
     commonSelect([analyticsEvents.referrer]).limit(15),
+    commonSelect([analyticsEvents.duration]).limit(10),
     commonSelect([analyticsEvents.hostname]).limit(10),
     commonSelect([analyticsEvents.utmSource]).limit(5),
     commonSelect([analyticsEvents.country]).limit(10),
@@ -232,9 +235,28 @@ async function getCommonAggregations(conditions: any[]) {
     db
       .select({
         uniqueVisitors: sql`count(distinct ${analyticsEvents.visitorId})`,
+        totalSessions: sql`count(distinct ${analyticsEvents.sessionId})`,
       })
       .from(analyticsEvents)
       .where(and(...conditions)),
+    db
+      .select({
+        totalDuration: sql`sum(session_duration)`,
+        avgDuration: sql`avg(session_duration)`,
+      })
+      .from(
+        db
+          .select({
+            session_duration:
+              sql`coalesce(nullif(max(${analyticsEvents.duration}), 0), 1)`.as(
+                "session_duration"
+              ),
+          })
+          .from(analyticsEvents)
+          .where(and(...conditions))
+          .groupBy(analyticsEvents.sessionId)
+          .as("s")
+      ),
   ]);
 
   return {
@@ -243,12 +265,16 @@ async function getCommonAggregations(conditions: any[]) {
     browserSummary,
     topPaths,
     topReferrers,
+    topDurations,
     topHostnames,
     topUtmSources,
     topCountries,
     topCities,
     totalVisits: Number(totalVisitsRes[0]?.totalVisits || 0),
     uniqueVisitors: Number(uniqueVisitorsRes[0]?.uniqueVisitors || 0),
+    totalSessions: Number(uniqueVisitorsRes[0]?.totalSessions || 0),
+    totalDuration: Number(totalDurationRes[0]?.totalDuration || 0),
+    avgDuration: Number(totalDurationRes[0]?.avgDuration || 0),
   };
 }
 

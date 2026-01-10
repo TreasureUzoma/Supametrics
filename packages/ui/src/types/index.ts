@@ -120,6 +120,10 @@ export interface Analytics {
   uniqueVisitors: number;
   totalVisitsChange: string | null;
   uniqueVisitorsChange: string | null;
+  totalDuration: number;
+  avgDuration: number;
+  totalSessions: number;
+  topDurations: AnalyticsSummaryItem[];
   frequency: Array<{
     time: string;
     totalVisits: number;
@@ -129,7 +133,7 @@ export interface Analytics {
 
 export interface StatCardProps {
   title: string;
-  value: number;
+  value: number | string;
   change?: number | null;
   loading: boolean;
 }

@@ -7,7 +7,7 @@ import { StatCard } from "./components/stat-card";
 import { FrequencyLineChart } from "./components/frequency-line-chart";
 import { SummaryCard } from "./components/summary-card";
 import { Grid } from "./components/grid";
-import { cleanUrl } from "@repo/ui/lib/utils";
+import { cleanUrl, formatDuration } from "@repo/ui/lib/utils";
 import { Error } from "@/components/error";
 
 export default function ProjectAnalyticsPage({
@@ -51,6 +51,16 @@ export default function ProjectAnalyticsPage({
                 ? parseFloat(data.uniqueVisitorsChange)
                 : null
             }
+          />
+          <StatCard
+            title="Avg Session Duration"
+            value={formatDuration(data?.avgDuration ?? 0)}
+            loading={isLoading}
+          />
+          <StatCard
+            title="Total Sessions"
+            value={data?.totalSessions ?? 0}
+            loading={isLoading}
           />
         </MetricsGrid>
 
@@ -105,7 +115,7 @@ export default function ProjectAnalyticsPage({
           />
         </Grid>
 
-        <Grid columns={2} gap="gap-2" gapSm="gap-4" gapMd="gap-6" gapLg="gap-8">
+        <Grid columns={3} gap="gap-2" gapSm="gap-4" gapMd="gap-6" gapLg="gap-8">
           <SummaryCard
             title="Top Countries"
             loading={isLoading}
@@ -123,6 +133,16 @@ export default function ProjectAnalyticsPage({
               data?.topCities?.map((r) => ({
                 label: cleanUrl(String(r.city ?? "Unknown")),
                 count: Number(r.count ?? 0),
+              })) ?? []
+            }
+          />
+          <SummaryCard
+            title="Top Durations"
+            loading={isLoading}
+            data={
+              data?.topDurations?.map((d) => ({
+                label: formatDuration(Number(d.duration ?? 0)),
+                count: Number(d.count ?? 0),
               })) ?? []
             }
           />

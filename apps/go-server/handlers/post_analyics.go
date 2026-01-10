@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -252,6 +253,19 @@ func LogAnalyticsEvent(c *fiber.Ctx) error {
 		DeviceType:     &uaData.DeviceType,
 		UserAgent:      &userAgent,
 		Duration:       req.Duration,
+	}
+
+	// Deduplicate "ping" events: Only keep the latest one for each session
+	if event.EventType == "ping" {
+		deleteQuery := `
+			DELETE FROM analytics_events 
+			WHERE project_id = $1 AND session_id = $2 AND event_type = 'ping'
+		`
+		_, err = db.DB.Exec(deleteQuery, event.ProjectID, event.SessionID)
+		if err != nil {
+			log.Printf("Failed to deduplicate ping event: %v", err)
+			// Continue anyway, it's not fatal
+		}
 	}
 
 	query := `
